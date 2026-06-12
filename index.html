@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MediVision AI - Heart Disease Detection & Chatbot Assistant</title>
+    <meta name="description" content="MediVision AI - An AI-powered medical chatbot and diagnostics dashboard for heart disease prediction using Hugging Face models, Vision Transformers, and Deep Learning.">
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <header class="navbar">
+        <div class="nav-container">
+            <a href="#" class="nav-logo" id="nav-logo">
+                <div class="pulse-icon">
+                    <i data-lucide="activity"></i>
+                </div>
+                <span>MediVision<span class="highlight"> AI</span></span>
+            </a>
+            
+            <!-- Nav links removed for clean layout -->
+            
+            <div class="nav-actions">
+                <button class="btn btn-secondary" id="btn-login-trigger">Sign In</button>
+                <button class="btn btn-primary btn-glow" id="btn-launch-app">Launch App</button>
+            </div>
+            
+            <button class="mobile-menu-toggle" id="menu-toggle">
+                <i data-lucide="menu"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Views Container -->
+    <main class="main-content">
+        
+        <!-- ================= LANDING PAGE VIEW ================= -->
+        <section id="view-landing" class="view-section active">
+            <!-- Hero Section -->
+            <section class="hero-section" id="about">
+                <div class="hero-bg-glow"></div>
+                <div class="container hero-container">
+                    <div class="hero-text-content">
+                        <div class="badge">
+                            <span class="badge-dot"></span> Powered by Hugging Face & Deep Learning
+                        </div>
+                        <h1 class="hero-title">AI-Powered Heart Disease Detection & Chatbot</h1>
+                        <p class="hero-description">
+                            A clinical-grade assistant analyzing medical images (ECG, X-rays, MRI) with Vision Transformers, predicting disease probability, and providing medical insights via NLP Chatbots.
+                        </p>
+                        <div class="hero-cta-group">
+                            <button class="btn btn-primary btn-large btn-glow btn-launch-app-action">Launch Interactive Demo</button>
+                            <a href="#objectives" class="btn btn-secondary btn-large">Learn More <i data-lucide="arrow-right"></i></a>
+                        </div>
+                    </div>
+                    
+                    <div class="hero-visual">
+                        <div class="pulse-card">
+                            <div class="pulse-card-header">
+                                <div class="user-info">
+                                    <div class="avatar"><i data-lucide="user"></i></div>
+                                    <div>
+                                        <h4 class="name">Simulated Scan</h4>
+                                        <p class="meta">Patient ECG ID: #8849</p>
+                                    </div>
+                                </div>
+                                <span class="status-badge critical"><i data-lucide="alert-triangle"></i> High Risk</span>
+                            </div>
+                            <div class="ecg-grid-visual">
+                                <div class="ecg-line-animation"></div>
+                            </div>
+                            <div class="pulse-card-footer">
+                                <div class="stat">
+                                    <span class="label">AI Confidence</span>
+                                    <span class="value cyan-text">94.8%</span>
+                                </div>
+                                <div class="stat">
+                                    <span class="label">Detected Anomalies</span>
+                                    <span class="value text-warning">Arrhythmia</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Documentation sections removed -->
+            <!-- Footer -->
+            <footer class="footer">
+                <div class="container">
+                    <div class="footer-bottom">
+                        <p>&copy; 2026 MediVision AI Project. Hugging Face Clinical Demonstration Platform.</p>
+                        <div class="footer-regulatory">
+                            <span>HIPAA Compliant Protocol Sandbox</span>
+                            <span class="dot"></span>
+                            <span>FDA Preliminary Diagnostic Sandbox</span>
+                        </div>
+                    </div>
+                </div>
+            </footer>
+        </section>
+
+
+        <!-- ================= INTERACTIVE WORKSPACE VIEW ================= -->
+        <section id="view-app" class="view-section">
+            <div class="app-layout">
+                <!-- Sidebar Control Panel -->
+                <aside class="app-sidebar">
+                    <div class="sidebar-user-card" id="user-profile-display">
+                        <div class="user-avatar" id="profile-avatar"><i data-lucide="user"></i></div>
+                        <div class="user-meta">
+                            <h4 id="profile-name">Guest User</h4>
+                            <p id="profile-role">Role: Patient</p>
+                        </div>
+                    </div>
+                    
+                    <ul class="sidebar-menu">
+                        <li>
+                            <button class="sidebar-item active" data-tab="tab-upload">
+                                <i data-lucide="file-image"></i> Image Diagnostic Center
+                            </button>
+                        </li>
+                        <li>
+                            <button class="sidebar-item" data-tab="tab-chatbot">
+                                <i data-lucide="message-square"></i> BioGPT Chatbot
+                            </button>
+                        </li>
+                        <li>
+                            <button class="sidebar-item" data-tab="tab-history">
+                                <i data-lucide="clipboard-list"></i> Medical Records
+                            </button>
+                        </li>
+                        <li class="doctor-only hidden" id="sidebar-doctor-item">
+                            <button class="sidebar-item" data-tab="tab-doctor">
+                                <i data-lucide="stethoscope"></i> Clinical Approval Queue <span class="badge badge-accent" id="queue-badge">0</span>
+                            </button>
+                        </li>
+                    </ul>
+                    
+                    <div class="sidebar-footer">
+                        <button class="btn btn-secondary btn-full" id="btn-logout">
+                            <i data-lucide="log-out"></i> Sign Out
+                        </button>
+                    </div>
+                </aside>
+
+                <!-- Workspace Panels -->
+                <div class="app-panel-container">
+                    
+                    <!-- TAB 1: UPLOAD & DIAGNOSTIC CENTER -->
+                    <div class="app-tab-panel active" id="tab-upload">
+                        <div class="tab-header">
+                            <div>
+                                <h2>Image Diagnostic Center</h2>
+                                <p>Upload medical scans to trigger the AI prediction engine</p>
+                            </div>
+                            <!-- Model configuration indicator -->
+                            <div class="active-model-indicator">
+                                <span class="label">Inference Model:</span>
+                                <span class="badge badge-cyan" id="active-vision-model-label">google/vit-base-patch16-224</span>
+                            </div>
+                        </div>
+                        
+                        <div class="diagnostic-grid">
+                            <!-- Input Panel -->
+                            <div class="card diagnostic-card-input">
+                                <h3>1. Select Scan & Model</h3>
+                                <div class="form-group">
+                                    <label>Scan Modality</label>
+                                    <div class="modality-selector">
+                                        <button class="modality-btn active" data-modality="ecg"><i data-lucide="activity"></i> ECG</button>
+                                        <button class="modality-btn" data-modality="xray"><i data-lucide="file-text"></i> Chest X-Ray</button>
+                                        <button class="modality-btn" data-modality="mri"><i data-lucide="shield-alert"></i> Cardiac MRI</button>
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label>Classifier Framework</label>
+                                    <select class="form-select" id="select-vision-model">
+                                        <option value="vit">google/vit-base-patch16-224 (Vision Transformer)</option>
+                                        <option value="resnet">microsoft/resnet-50 (ResNet-50 CNN)</option>
+                                        <option value="densenet">DenseNet121 (Dense Medical Net)</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label>Upload File</label>
+                                    <div class="drag-drop-area" id="drag-drop-zone">
+                                        <input type="file" id="file-input" accept="image/*" class="hidden">
+                                        <i data-lucide="upload-cloud" class="upload-icon"></i>
+                                        <p class="main-text">Drag and drop file here, or <span class="click-link">browse</span></p>
+                                        <p class="sub-text">Supported formats: JPG, PNG, DICOM. Max 10MB.</p>
+                                    </div>
+                                </div>
+
+                                <div class="sample-image-trigger-group">
+                                    <p class="sample-label">No clinical files? Use our high-fidelity generated samples:</p>
+                                    <div class="sample-buttons">
+                                        <button class="btn btn-secondary btn-sm" id="btn-use-sample-ecg"><i data-lucide="activity"></i> ECG Sample</button>
+                                        <button class="btn btn-secondary btn-sm" id="btn-use-sample-xray"><i data-lucide="file-text"></i> X-Ray Sample</button>
+                                        <button class="btn btn-secondary btn-sm" id="btn-use-sample-mri"><i data-lucide="shield-alert"></i> MRI Sample</button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Viewer Panel -->
+                            <div class="card diagnostic-card-viewer">
+                                <div class="viewer-wrapper">
+                                    <!-- Empty State -->
+                                    <div class="viewer-empty-state" id="viewer-empty">
+                                        <i data-lucide="image" class="empty-icon"></i>
+                                        <p>Await File Upload to Begin</p>
+                                        <span class="sub-text">Inference results will automatically compile upon file receipt</span>
+                                    </div>
+                                    
+                                    <!-- Image Preview & Scanner Overlay -->
+                                    <div class="viewer-active-state hidden" id="viewer-active">
+                                        <div class="scan-image-container">
+                                            <img id="scan-preview-img" src="" alt="Medical Scan">
+                                            <div class="scan-laser-grid" id="scan-laser"></div>
+                                            <div class="heatmap-overlay hidden" id="heatmap-overlay"></div>
+                                        </div>
+                                        
+                                        <div class="viewer-actions-row">
+                                            <button class="btn btn-secondary btn-sm" id="btn-toggle-heatmap" disabled>
+                                                <i data-lucide="eye"></i> Toggle AI Attention Heatmap
+                                            </button>
+                                            <span class="scan-status" id="scan-status-text">Processing complete</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Scanning Progress -->
+                                <div class="scan-progress-bar-container hidden" id="scan-progress-box">
+                                    <div class="progress-info">
+                                        <span id="scan-progress-label">Extracting spatial features...</span>
+                                        <span id="scan-progress-pct">0%</span>
+                                    </div>
+                                    <div class="progress-bar-bg">
+                                        <div class="progress-bar-fill" id="scan-progress-fill"></div>
+                                    </div>
+                                </div>
+
+                                <!-- Results Panel -->
+                                <div class="prediction-results-box hidden" id="prediction-results-box">
+                                    <hr class="divider">
+                                    <div class="result-header">
+                                        <h4>Diagnostic Evaluation</h4>
+                                        <span class="status-badge" id="result-status-badge">Normal</span>
+                                    </div>
+                                    
+                                    <div class="probability-metric-row">
+                                        <div class="metric-label">
+                                            <span>MediVisionvascular Anomaly Probability</span>
+                                            <span class="probability-pct" id="result-probability-text">8.4%</span>
+                                        </div>
+                                        <div class="probability-bar-bg">
+                                            <div class="probability-bar-fill" id="result-probability-fill"></div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="results-metadata-grid">
+                                        <div class="metadata-item">
+                                            <span class="label">Identified Pathology</span>
+                                            <span class="value" id="result-pathology-name">Sinus Rhythm</span>
+                                        </div>
+                                        <div class="metadata-item">
+                                            <span class="label">Clinical Signatures</span>
+                                            <span class="value text-warning" id="result-clinical-tags">None Detected</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="results-action-row">
+                                        <button class="btn btn-primary" id="btn-goto-chat">
+                                            <i data-lucide="message-square"></i> Open Chatbot Consultation
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- TAB 2: BIO-GPT MEDICAL CHATBOT -->
+                    <div class="app-tab-panel" id="tab-chatbot">
+                        <div class="chatbot-container">
+                            <!-- Left: Session Context Summary -->
+                            <div class="chatbot-context-panel">
+                                <h3>Consultation Desk</h3>
+                                <div class="context-subcard">
+                                    <label>Connected Chat Model</label>
+                                    <div class="chat-model-info">
+                                        <i data-lucide="bot"></i>
+                                        <div>
+                                            <select class="form-select select-sm" id="select-chatbot-model">
+                                                <option value="biogpt">microsoft/BioGPT</option>
+                                                <option value="biobert">BioBERT (QA Extractor)</option>
+                                                <option value="medalpaca">MedAlpaca (Instruct-tuned)</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="context-subcard" id="chat-diagnosis-context">
+                                    <label>Active Diagnosis Context</label>
+                                    <div class="context-status empty" id="chat-context-empty">
+                                        <i data-lucide="info"></i>
+                                        <p>No active diagnostic image. Upload a scan first for context-aware chat.</p>
+                                    </div>
+                                    <div class="context-status active-context hidden" id="chat-context-loaded">
+                                        <div class="context-thumbnail">
+                                            <img id="chat-context-thumb" src="" alt="Thumbnail">
+                                        </div>
+                                        <div class="context-details">
+                                            <h5 id="chat-context-type">ECG Reading</h5>
+                                            <p id="chat-context-summary">Disease Prob: 94.8%</p>
+                                            <span class="badge badge-accent btn-sm" id="chat-context-tag">Arrhythmia</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="disclaimer-alert">
+                                    <i data-lucide="alert-octagon"></i>
+                                    <p><strong>Clinical Disclaimer:</strong> Chatbot answers are for preliminary evaluation only and must be confirmed by a board-certified physician.</p>
+                                </div>
+                            </div>
+
+                            <!-- Right: Chat Room -->
+                            <div class="chat-room-panel">
+                                <div class="chat-history" id="chat-messages-container">
+                                    <!-- Bot Welcome Message -->
+                                    <div class="chat-message bot">
+                                        <div class="message-avatar"><i data-lucide="bot"></i></div>
+                                        <div class="message-bubble">
+                                            <p>Welcome to MediVision AI. I am your biomedical AI chatbot powered by Hugging Face models. How can I assist you with your cardiac inquiries today?</p>
+                                            <span class="timestamp">11:25 AM</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="chat-prompt-suggestions" id="chat-suggestions-box">
+                                    <button class="suggestion-chip" data-prompt="What are the symptoms of Arrhythmia?">Symptoms of Arrhythmia</button>
+                                    <button class="suggestion-chip" data-prompt="What is cardiomegaly?">What is MediVisionmegaly?</button>
+                                    <button class="suggestion-chip" data-prompt="Explain Vision Transformers in medicine.">How does this AI work?</button>
+                                </div>
+
+                                <form class="chat-input-row" id="chat-form">
+                                    <input type="text" class="chat-text-input" id="chat-text-input" placeholder="Ask about symptoms, precautions, or uploaded diagnosis..." required>
+                                    <button type="submit" class="btn btn-primary btn-icon" id="btn-send-message">
+                                        <i data-lucide="send"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- TAB 3: MEDICAL HISTORY & REPORTS -->
+                    <div class="app-tab-panel" id="tab-history">
+                        <div class="tab-header">
+                            <div>
+                                <h2>Medical History & Reports</h2>
+                                <p>View past diagnoses and download clinical records</p>
+                            </div>
+                        </div>
+                        
+                        <div class="card records-card">
+                            <div class="table-wrapper">
+                                <table class="clinical-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Date</th>
+                                            <th>Record ID</th>
+                                            <th>Scan Type</th>
+                                            <th>Model Used</th>
+                                            <th>AI Prediction</th>
+                                            <th>Status</th>
+                                            <th>Clinical Signature</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="records-table-body">
+                                        <!-- Dynamically Populated -->
+                                        <tr>
+                                            <td colspan="8" class="text-center py-4 text-muted">No diagnostic records located. Submit a scan in the Diagnostic Center.</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- TAB 4: CLINICAL APPROVAL QUEUE (DOCTOR ONLY) -->
+                    <div class="app-tab-panel" id="tab-doctor">
+                        <div class="tab-header">
+                            <div>
+                                <h2>Clinical Approval Portal</h2>
+                                <p>Review AI-assisted diagnostic reports and issue clinical sign-offs</p>
+                            </div>
+                        </div>
+
+                        <div class="doctor-portal-grid">
+                            <!-- Left: Submission Queue -->
+                            <div class="card queue-card">
+                                <h3>Pending Patient Submissions</h3>
+                                <div class="queue-list" id="doctor-queue-list">
+                                    <!-- Dynamic Items -->
+                                    <div class="empty-queue-text text-muted">No reports currently in the validation queue.</div>
+                                </div>
+                            </div>
+
+                            <!-- Right: Detailed Review Panel -->
+                            <div class="card review-card">
+                                <h3>Clinical Evaluation Desk</h3>
+                                <div class="review-panel-content" id="doctor-review-empty">
+                                    <i data-lucide="stethoscope" class="empty-icon"></i>
+                                    <p>Select a submission from the left queue to begin validation</p>
+                                </div>
+
+                                <div class="review-panel-content hidden" id="doctor-review-active">
+                                    <div class="patient-header">
+                                        <div>
+                                            <h4 id="review-patient-name">Patient Name</h4>
+                                            <p class="meta" id="review-record-id">Record ID: #0000</p>
+                                        </div>
+                                        <span class="status-badge" id="review-ai-probability-badge">94.8% Risk</span>
+                                    </div>
+                                    
+                                    <div class="review-details-grid">
+                                        <div class="detail-box">
+                                            <label>Uploaded Scan</label>
+                                            <div class="scan-thumbnail-box">
+                                                <img id="review-scan-img" src="" alt="Scan Image">
+                                            </div>
+                                        </div>
+                                        <div class="detail-box">
+                                            <label>AI Diagnostics Summary</label>
+                                            <div class="ai-summary-card">
+                                                <p><strong>Modality:</strong> <span id="review-modality">ECG</span></p>
+                                                <p><strong>Prediction Model:</strong> <span id="review-ai-model">ViT</span></p>
+                                                <p><strong>Probability:</strong> <span id="review-probability">0.0%</span></p>
+                                                <p><strong>AI Verdict:</strong> <span id="review-verdict">Normal</span></p>
+                                                <p><strong>Primary Flags:</strong> <span id="review-pathology">None</span></p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="doctor-action-form">
+                                        <div class="form-group">
+                                            <label for="doctor-clinical-verdict">Official Diagnostic Verdict</label>
+                                            <select class="form-select" id="doctor-clinical-verdict">
+                                                <option value="Confirmed - Normal">Confirm AI - Normal / Low Risk</option>
+                                                <option value="Confirmed - Abnormal">Confirm AI - Heart Disease Detected</option>
+                                                <option value="Overruled - Normal">Overrule AI - Normal / Low Risk</option>
+                                                <option value="Overruled - Abnormal">Overrule AI - Pathological Anomaly Found</option>
+                                            </select>
+                                        </div>
+                                        
+                                        <div class="form-group">
+                                            <label for="doctor-clinical-notes">Clinical Notes & Treatment Pathway</label>
+                                            <textarea class="form-textarea" id="doctor-clinical-notes" rows="4" placeholder="Enter patient guidelines, required therapies, or scheduled appointment dates..."></textarea>
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label for="doctor-signature">Authorized Clinician Signature</label>
+                                            <input type="text" class="form-input" id="doctor-signature" placeholder="Dr. [First Name, Last Name], MD">
+                                        </div>
+
+                                        <button class="btn btn-primary btn-full" id="btn-submit-doctor-approval">
+                                            <i data-lucide="check-square"></i> Issue Sign-off & Finalize Report
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- TAB 5: REMOVED -->
+                    
+                </div>
+            </div>
+        </section>
+        
+    </main>
+
+    <!-- ================= AUTHENTICATION MODAL ================= -->
+    <div class="modal-backdrop" id="auth-modal">
+        <div class="modal-card">
+            <button class="modal-close" id="btn-close-auth"><i data-lucide="x"></i></button>
+            <div class="modal-tabs">
+                <button class="modal-tab-btn active" id="tab-btn-signin">Sign In</button>
+                <button class="modal-tab-btn" id="tab-btn-signup">Register Account</button>
+            </div>
+            
+            <div class="modal-body">
+                <!-- Sign In Form -->
+                <form id="signin-form" class="auth-form active">
+                    <div class="form-group">
+                        <label for="signin-email">Medical Registration / Email Address</label>
+                        <input type="email" class="form-input" id="signin-email" placeholder="name@medivision.ai" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="signin-password">Password</label>
+                        <input type="password" class="form-input" id="signin-password" placeholder="••••••••" required>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary btn-full btn-glow">Sign In</button>
+                    
+                    <!-- Quick Test Credentials -->
+                    <div class="quick-credentials">
+                        <p class="credential-label">For Evaluation / Sandbox Testing:</p>
+                        <div class="credential-buttons">
+                            <button type="button" class="btn btn-secondary btn-sm" id="btn-quick-patient">
+                                <i data-lucide="user"></i> Login as Patient
+                            </button>
+                            <button type="button" class="btn btn-secondary btn-sm" id="btn-quick-doctor">
+                                <i data-lucide="stethoscope"></i> Login as Doctor
+                            </button>
+                        </div>
+                    </div>
+                </form>
+
+                <!-- Sign Up Form -->
+                <form id="signup-form" class="auth-form">
+                    <div class="form-group">
+                        <label for="signup-name">Full Legal Name</label>
+                        <input type="text" class="form-input" id="signup-name" placeholder="John Doe" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="signup-email">Email Address</label>
+                        <input type="email" class="form-input" id="signup-email" placeholder="patient@gmail.com" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="signup-role">Account Privilege Level</label>
+                        <select class="form-select" id="signup-role">
+                            <option value="patient">Patient (Submit Scans & Chat)</option>
+                            <option value="doctor">Doctor / Clinician (Approve Diagnostic Records)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="signup-password">Create Secure Password</label>
+                        <input type="password" class="form-input" id="signup-password" placeholder="••••••••" required>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary btn-full btn-glow">Register Account</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= CLINICAL REPORT PRINT MODAL (FOR PRINT STYLESHEET) ================= -->
+    <div class="print-report-container" id="printable-report">
+        <!-- This area will be dynamically rendered when print trigger is hit -->
+    </div>
+
+    <!-- Footer moved to landing view to prevent displaying inside the active dashboard -->
+
+    <!-- Core App JS -->
+    <script src="app.js"></script>
+</body>
+</html>
