@@ -12,3 +12,8 @@ Desktop.ini
 *.njsproj
 *.sln
 *.sw?
+
+# Python & Databases
+__pycache__/
+*.db
+uploads/

@@ -1,52 +1,11 @@
 /* ==========================================================================
-   MediVision AI - Application logic, State Management, and AI Simulation
+   MediVision AI - Application logic, State Management, and API Integration
    ========================================================================== */
 
-// --- 1. Mock Database & Local Storage Setup ---
-const DEFAULT_RECORDS = [
-    {
-        id: "REC-8849",
-        date: "2026-06-11 14:30",
-        patientName: "David Miller",
-        patientEmail: "patient@medivision.ai",
-        modality: "ECG",
-        modelUsed: "google/vit-base-patch16-224",
-        probability: "94.8%",
-        verdict: "Abnormal",
-        pathology: "Possible Arrhythmia / PVCs Detected",
-        signatures: "PVCs, tachycardia episodes in Lead II",
-        scanUrl: "assets/ecg_sample.png",
-        status: "Pending Review",
-        doctorVerdict: "",
-        doctorNotes: "",
-        doctorSigned: ""
-    },
-    {
-        id: "REC-5412",
-        date: "2026-06-10 09:15",
-        patientName: "Sarah Connor",
-        patientEmail: "sarah.c@gmail.com",
-        modality: "Chest X-Ray",
-        modelUsed: "microsoft/resnet-50",
-        probability: "12.4%",
-        verdict: "Normal",
-        pathology: "Clear Lung Fields / Sinus Rhythm",
-        signatures: "No cardiomegaly or effusion observed",
-        scanUrl: "assets/xray_sample.png",
-        status: "Approved",
-        doctorVerdict: "Confirmed - Normal",
-        doctorNotes: "Lungs are clear, cardiac silhouette is within normal limits. No follow-up required.",
-        doctorSigned: "Dr. Sarah Jenkins, MD"
-    }
-];
+// --- 1. API Configuration & State Management ---
+const API_BASE = window.location.origin.startsWith('file') ? 'http://localhost:8000' : '';
 
-// Load or Initialize State
-let records = JSON.parse(localStorage.getItem('medivision_records'));
-if (!records) {
-    records = DEFAULT_RECORDS;
-    localStorage.setItem('medivision_records', JSON.stringify(records));
-}
-
+let records = [];
 let currentUser = JSON.parse(localStorage.getItem('medivision_user')) || null;
 
 // Application State
@@ -60,6 +19,20 @@ const appState = {
     activeDoctorRecordId: null,
     isScanning: false
 };
+
+// Fetch all patient/doctor medical records from FastAPI SQL Database
+async function fetchRecords() {
+    if (!currentUser) return [];
+    try {
+        const res = await fetch(`${API_BASE}/api/records?email=${encodeURIComponent(currentUser.email)}&role=${encodeURIComponent(currentUser.role)}`);
+        if (!res.ok) throw new Error("Failed to fetch records");
+        records = await res.json();
+        return records;
+    } catch (err) {
+        console.error("Failed to query SQL database records:", err);
+        return [];
+    }
+}
 
 // --- 2. DOM Elements Mapping ---
 const elements = {
@@ -306,167 +279,9 @@ function handleLogin(email, role = 'patient', customName = '') {
     switchView('app');
 }
 
-function handleLogout() {
-    currentUser = null;
-    localStorage.removeItem('medivision_user');
-    updateNavigationState();
-    switchView('landing');
-}
-
 // --- 5. Diagnostic scanning & AI predictions ---
-const DIAGNOSTIC_PROFILES = {
-    ecg: {
-        normal: {
-            probability: 7.2,
-            verdict: 'Normal',
-            pathology: 'Sinus Rhythm',
-            clinicalTags: 'Regular electrical cycles, normal PR interval'
-        },
-        abnormal: {
-            probability: 94.8,
-            verdict: 'Abnormal',
-            pathology: 'Possible Arrhythmia / PVCs',
-            clinicalTags: 'Premature ventricular contractions, elevated QT segment'
-        }
-    },
-    xray: {
-        normal: {
-            probability: 11.5,
-            verdict: 'Normal',
-            pathology: 'Clear Lung Fields',
-            clinicalTags: 'Normal cardiothoracic ratio (< 0.50), regular density'
-        },
-        abnormal: {
-            probability: 84.2,
-            verdict: 'Abnormal',
-            pathology: 'Possible MediVisionmegaly',
-            clinicalTags: 'Enlarged cardiac silhouette, pleural congestion'
-        }
-    },
-    mri: {
-        normal: {
-            probability: 5.6,
-            verdict: 'Normal',
-            pathology: 'Unremarkable Left Ventricle',
-            clinicalTags: 'Normal ejection fraction (62%), standard wall thickness'
-        },
-        abnormal: {
-            probability: 79.5,
-            verdict: 'Abnormal',
-            pathology: 'Myocardial Infarction Risk',
-            clinicalTags: 'Akinetic ventricular walls, localized tissue scarring'
-        }
-    }
-};
 
-function triggerDiagnosticScan(imgSrc, isSample = false, sampleType = 'normal') {
-    if (appState.isScanning) return;
-    
-    appState.isScanning = true;
-    elements.viewerEmpty.classList.add('hidden');
-    elements.viewerActive.classList.remove('hidden');
-    elements.scanPreviewImg.src = imgSrc;
-    elements.scanLaser.classList.add('active');
-    elements.heatmapOverlay.classList.add('hidden');
-    elements.btnToggleHeatmap.setAttribute('disabled', 'true');
-    
-    elements.scanProgressBox.classList.remove('hidden');
-    elements.predictionResultsBox.classList.add('hidden');
-    
-    let progress = 0;
-    const progressInterval = setInterval(() => {
-        progress += 4;
-        elements.scanProgressPct.textContent = `${progress}%`;
-        elements.scanProgressFill.style.width = `${progress}%`;
-        
-        if (progress < 30) {
-            elements.scanProgressLabel.textContent = 'Loading tensor weight configurations...';
-        } else if (progress < 60) {
-            elements.scanProgressLabel.textContent = 'Extracting spatial medical anomalies...';
-        } else if (progress < 85) {
-            elements.scanProgressLabel.textContent = 'Executing convolutional token layers...';
-        } else {
-            elements.scanProgressLabel.textContent = 'Generating Vision attention matrix maps...';
-        }
-        
-        if (progress >= 100) {
-            clearInterval(progressInterval);
-            finalizeScanResult(imgSrc, isSample, sampleType);
-        }
-    }, 100);
-}
-
-function finalizeScanResult(imgSrc, isSample, sampleType) {
-    appState.isScanning = false;
-    elements.scanLaser.classList.remove('active');
-    elements.scanProgressBox.classList.add('hidden');
-    
-    // Determine profile
-    const modality = appState.selectedModality;
-    const typeKey = isSample ? sampleType : (Math.random() > 0.4 ? 'abnormal' : 'normal'); // Default random for custom files
-    const profile = DIAGNOSTIC_PROFILES[modality][typeKey];
-    
-    // Update labels
-    elements.resultStatusBadge.textContent = profile.verdict;
-    elements.resultStatusBadge.className = 'status-badge ' + (profile.verdict === 'Normal' ? 'normal-status' : 'critical');
-    
-    elements.resultProbabilityText.textContent = `${profile.probability}%`;
-    elements.resultProbabilityFill.style.width = `${profile.probability}%`;
-    
-    // Color fill based on severity
-    elements.resultProbabilityFill.className = 'probability-bar-fill';
-    if (profile.probability < 20) {
-        elements.resultProbabilityFill.classList.add('normal-fill');
-    } else if (profile.probability < 60) {
-        elements.resultProbabilityFill.classList.add('warning-fill');
-    } else {
-        elements.resultProbabilityFill.classList.add('danger-fill');
-    }
-    
-    elements.resultPathologyName.textContent = profile.pathology;
-    elements.resultClinicalTags.textContent = profile.clinicalTags;
-    
-    elements.btnToggleHeatmap.removeAttribute('disabled');
-    elements.predictionResultsBox.classList.remove('hidden');
-    
-    // Save record to local state / localStorage
-    const recordId = `REC-${Math.floor(1000 + Math.random() * 9000)}`;
-    const now = new Date();
-    const formattedDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-    
-    const newRecord = {
-        id: recordId,
-        date: formattedDate,
-        patientName: currentUser.name,
-        patientEmail: currentUser.email,
-        modality: modality.toUpperCase() + (modality === 'ecg' ? '' : ' Scan'),
-        modelUsed: elements.selectVisionModel.options[elements.selectVisionModel.selectedIndex].text.split(' ')[0],
-        probability: `${profile.probability}%`,
-        verdict: profile.verdict,
-        pathology: profile.pathology,
-        signatures: profile.clinicalTags,
-        scanUrl: imgSrc,
-        status: 'Pending Review',
-        doctorVerdict: '',
-        doctorNotes: '',
-        doctorSigned: ''
-    };
-    
-    // Push new entry
-    records.unshift(newRecord);
-    localStorage.setItem('medivision_records', JSON.stringify(records));
-    
-    // Set active chatbot/report context
-    appState.activeContextRecord = newRecord;
-    
-    // Load context in Chatbot sidebar
-    loadChatbotContext(newRecord);
-    
-    // Refresh table and doctor queues
-    refreshDataViews();
-}
-
-// --- 6. Chatbot Engine Simulator ---
+// local backup dictionary of recommendations used in the printable report
 const CHATBOT_RESPONSES = {
     ecg: {
         abnormal: {
@@ -481,19 +296,19 @@ const CHATBOT_RESPONSES = {
             intro: "Your ECG scan shows a 7.2% probability of anomaly, indicating a healthy normal sinus rhythm. Your heart's electrical pathways are firing correctly.",
             whatItShows: "• A regular heart rate between 60-100 BPM.<br>• Symmetrical P waves preceding every standard QRS complex.<br>• Constant and regular PR intervals.",
             whatItMeans: "Your heart is contracting via a healthy sinus rhythm, demonstrating optimal electrical conductivity without signs of ectopic signals.",
-            alternativeRecommendations: "• <strong>MediVision Preservation:</strong> Perform 30 minutes of low-intensity aerobic conditioning (like walking, cycling) 5 days a week to support stroke volume and lower resting pressure.<br>• <strong>Vessel Elasticity:</strong> Include healthy monounsaturated fats (extra virgin olive oil, walnuts) to keep arteries highly flexible.<br>• <strong>Hydration Maintenance:</strong> Stay hydrated with clean water and coconut water to prevent transient electrolyte fluctuation.",
+            alternativeRecommendations: "• <strong>Cardio Preservation:</strong> Perform 30 minutes of low-intensity aerobic conditioning (like walking, cycling) 5 days a week to support stroke volume and lower resting pressure.<br>• <strong>Vessel Elasticity:</strong> Include healthy monounsaturated fats (extra virgin olive oil, walnuts) to keep arteries highly flexible.<br>• <strong>Hydration Maintenance:</strong> Stay hydrated with clean water and coconut water to prevent transient electrolyte fluctuation.",
             symptoms: "A normal sinus rhythm means you shouldn't feel irregular fluttering. If you still experience chest pains or palpitations, please report them directly to a physician, as non-electrical conditions could be present.",
             precautions: "Keep up the excellent work! To support your cardiovascular health: exercise moderately 150 mins per week, maintain a diet low in trans fats, and limit high sodium inputs."
         }
     },
     xray: {
         abnormal: {
-            intro: "Your Chest X-Ray scan shows signs of MediVisionmegaly (an enlarged heart) with an AI risk confidence of 84.2%. This means the width of your heart exceeds 50% of the interior chest diameter.",
+            intro: "Your Chest X-Ray scan shows signs of Cardiomegaly (an enlarged heart) with an AI risk confidence of 84.2%. This means the width of your heart exceeds 50% of the interior chest diameter.",
             whatItShows: "• Enlargement of the cardiac silhouette shape, exceeding 0.50 of the ribcage width.<br>• Moderate elevation of diaphragm lines.<br>• Minor pleural margins congestion.",
             whatItMeans: "The heart muscle is working under chronically elevated workload, leading to hypertrophy (enlargement) of the ventricles, often caused by untreated high blood pressure or valve issues.",
-            alternativeRecommendations: "• <strong>Strict Sodium Limitation:</strong> Limit sodium to under 1,500 mg daily to decrease fluid retention, vascular volume, and diastolic pressure.<br>• <strong>Natural Vasodilators:</strong> Incorporate organic beetroot juice (rich in dietary nitrates) or garlic extract to naturally relax blood vessels and reduce heart workload.<br>• <strong>Anti-Gravity Sleeping:</strong> Elevate the head of your bed by 15-30 degrees using a wedge pillow to prevent nocturnal fluid accumulation in the chest, easing breathing.<br>• <strong>Hawthorn Berry MediVisiontonic:</strong> Research traditional cardiotonic herbs like Hawthorn Berry to naturally support vascular blood flow and coronary circulation.",
+            alternativeRecommendations: "• <strong>Strict Sodium Limitation:</strong> Limit sodium to under 1,500 mg daily to decrease fluid retention, vascular volume, and diastolic pressure.<br>• <strong>Natural Vasodilators:</strong> Incorporate organic beetroot juice (rich in dietary nitrates) or garlic extract to naturally relax blood vessels and reduce heart workload.<br>• <strong>Anti-Gravity Sleeping:</strong> Elevate the head of your bed by 15-30 degrees using a wedge pillow to prevent nocturnal fluid accumulation in the chest, easing breathing.<br>• <strong>Hawthorn Berry Cardiotonic:</strong> Research traditional cardiotonic herbs like Hawthorn Berry to naturally support vascular blood flow and coronary circulation.",
             symptoms: "An enlarged heart (cardiomegaly) may cause fluid build-up in the lungs, leading to shortness of breath (especially when lying flat), cough, leg swelling (edema), and fatigue.",
-            precautions: "For suspected MediVisionmegaly:\n1. **Restrict Fluid & Sodium:** High salt intake increases blood volume, putting extra strain on the heart muscle.\n2. **Avoid Heavy Exertion:** Avoid activities that trigger immediate shortness of breath.\n3. **Sleep Elevated:** Use extra pillows to help breathing at night.\n4. **Consultation:** Please review these X-ray margins with a clinician for an echocardiogram referral."
+            precautions: "For suspected Cardiomegaly:\n1. **Restrict Fluid & Sodium:** High salt intake increases blood volume, putting extra strain on the heart muscle.\n2. **Avoid Heavy Exertion:** Avoid activities that trigger immediate shortness of breath.\n3. **Sleep Elevated:** Use extra pillows to help breathing at night.\n4. **Consultation:** Please review these X-ray margins with a clinician for an echocardiogram referral."
         },
         normal: {
             intro: "Your Chest X-Ray indicates a low anomaly rate (11.5%). The size of your cardiac silhouette is normal, and your lung fields are clear.",
@@ -509,7 +324,7 @@ const CHATBOT_RESPONSES = {
             intro: "Your Cardiac MRI shows a 79.5% probability of anomalous tissue patterns, signifying potential myocardial infarction (tissue scarring or heart muscle injury).",
             whatItShows: "• Reduced contraction movement (hypokinesis) in the ventricular wall segments.<br>• Elevated signal intensity indicating structural scar tissue or localized fibrosis.<br>• Compensatory changes in surrounding healthy wall areas.",
             whatItMeans: "A region of the heart muscle suffered oxygen starvation in the past, leading to localized tissue necrosis (scarring) and reducing the overall pumping efficiency of the left ventricle.",
-            alternativeRecommendations: "• <strong>High-Dose Omega-3s:</strong> Supplement with 2-3g of high-quality fish oil (EPA/DHA) daily to alleviate chronic cardiovascular inflammation and protect cell membrane structures.<br>• <strong>Mediterranean Lifestyle:</strong> Rely on a diet rich in raw nuts, legumes, fresh vegetables, and fatty fish to lower secondary event rates.<br>• <strong>Structured MediVisionvascular Rehab:</strong> Join a local cardiac rehabilitation program to complete supervised, heart-rate-limited conditioning to slowly rebuild stroke volume.<br>• <strong>Antioxidant Protection:</strong> Take grape seed extract or consume polyphenols to prevent oxidative stress in recovering heart tissues.",
+            alternativeRecommendations: "• <strong>High-Dose Omega-3s:</strong> Supplement with 2-3g of high-quality fish oil (EPA/DHA) daily to alleviate chronic cardiovascular inflammation and protect cell membrane structures.<br>• <strong>Mediterranean Lifestyle:</strong> Rely on a diet rich in raw nuts, legumes, fresh vegetables, and fatty fish to lower secondary event rates.<br>• <strong>Structured Cardiovascular Rehab:</strong> Join a local cardiac rehabilitation program to complete supervised, heart-rate-limited conditioning to slowly rebuild stroke volume.<br>• <strong>Antioxidant Protection:</strong> Take grape seed extract or consume polyphenols to prevent oxidative stress in recovering heart tissues.",
             symptoms: "Myocardial ischemia or infarction risks are marked by pressure/squeezing in the center of the chest, pain spreading to the left arm or jaw, cold sweats, and nausea.",
             precautions: "For suspected myocardial injury:\n1. **Zero Stress:** Rest immediately; avoid elevating your heart rate.\n2. **Emergency Preparedness:** If you experience active chest pressure lasting over 5 minutes, seek emergency medical services immediately.\n3. **Follow-Up:** A cardiac MRI finding of localized akinetic walls requires a cardiologist's assessment for coronary artery clearance."
         },
@@ -524,11 +339,138 @@ const CHATBOT_RESPONSES = {
     }
 };
 
+async function triggerDiagnosticScan(file, isSample = false) {
+    if (appState.isScanning) return;
+    
+    appState.isScanning = true;
+    elements.viewerEmpty.classList.add('hidden');
+    elements.viewerActive.classList.remove('hidden');
+    
+    // Set immediate preview URL
+    const previewUrl = URL.createObjectURL(file);
+    elements.scanPreviewImg.src = previewUrl;
+    elements.scanLaser.classList.add('active');
+    elements.heatmapOverlay.classList.add('hidden');
+    elements.btnToggleHeatmap.setAttribute('disabled', 'true');
+    
+    elements.scanProgressBox.classList.remove('hidden');
+    elements.predictionResultsBox.classList.add('hidden');
+    
+    // Start progress animation
+    let progress = 0;
+    let scanFinished = false;
+    let apiResponse = null;
+    let apiError = null;
+
+    const progressInterval = setInterval(() => {
+        progress += 4;
+        if (progress > 100) progress = 100;
+        
+        elements.scanProgressPct.textContent = `${progress}%`;
+        elements.scanProgressFill.style.width = `${progress}%`;
+        
+        if (progress < 30) {
+            elements.scanProgressLabel.textContent = 'Loading tensor weight configurations...';
+        } else if (progress < 60) {
+            elements.scanProgressLabel.textContent = 'Extracting spatial medical anomalies...';
+        } else if (progress < 85) {
+            elements.scanProgressLabel.textContent = 'Executing convolutional token layers...';
+        } else {
+            elements.scanProgressLabel.textContent = 'Generating Vision attention matrix maps...';
+        }
+        
+        if (progress >= 100) {
+            clearInterval(progressInterval);
+            scanFinished = true;
+            checkAndFinalize();
+        }
+    }, 100);
+
+    // Call predict API in parallel
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('modality', appState.selectedModality.toUpperCase() + (appState.selectedModality === 'ecg' ? '' : ' Scan'));
+    formData.append('model_used', elements.selectVisionModel.options[elements.selectVisionModel.selectedIndex].text.split(' ')[0]);
+    formData.append('patient_name', currentUser.name);
+    formData.append('patient_email', currentUser.email);
+
+    try {
+        const res = await fetch(`${API_BASE}/api/predict`, {
+            method: 'POST',
+            body: formData
+        });
+        if (!res.ok) {
+            const errData = await res.json();
+            throw new Error(errData.detail || 'Evaluation failed.');
+        }
+        apiResponse = await res.json();
+    } catch (err) {
+        console.error(err);
+        apiError = err.message || 'Server connection error.';
+    } finally {
+        checkAndFinalize();
+    }
+
+    function checkAndFinalize() {
+        if (scanFinished && (apiResponse || apiError)) {
+            appState.isScanning = false;
+            elements.scanLaser.classList.remove('active');
+            elements.scanProgressBox.classList.add('hidden');
+            
+            if (apiError) {
+                alert(`AI Evaluation Failed: ${apiError}`);
+                elements.viewerEmpty.classList.remove('hidden');
+                elements.viewerActive.classList.add('hidden');
+                return;
+            }
+            
+            // finalize scan result using backend response
+            finalizeScanResult(apiResponse);
+        }
+    }
+}
+
+function finalizeScanResult(record) {
+    // Update labels from real record
+    const probPct = parseFloat(record.probability);
+    
+    elements.resultStatusBadge.textContent = record.verdict;
+    elements.resultStatusBadge.className = 'status-badge ' + (record.verdict === 'Normal' ? 'normal-status' : 'critical');
+    
+    elements.resultProbabilityText.textContent = record.probability;
+    elements.resultProbabilityFill.style.width = record.probability;
+    
+    elements.resultProbabilityFill.className = 'probability-bar-fill';
+    if (probPct < 20) {
+        elements.resultProbabilityFill.classList.add('normal-fill');
+    } else if (probPct < 60) {
+        elements.resultProbabilityFill.classList.add('warning-fill');
+    } else {
+        elements.resultProbabilityFill.classList.add('danger-fill');
+    }
+    
+    elements.resultPathologyName.textContent = record.pathology;
+    elements.resultClinicalTags.textContent = record.signatures;
+    
+    elements.btnToggleHeatmap.removeAttribute('disabled');
+    elements.predictionResultsBox.classList.remove('hidden');
+    
+    // Set active chatbot/report context
+    appState.activeContextRecord = record;
+    
+    // Load context in Chatbot sidebar
+    loadChatbotContext(record);
+    
+    // Refresh table and doctor queues
+    refreshDataViews();
+}
+
+// --- 6. Chatbot Engine Integration ---
 function loadChatbotContext(record) {
     elements.chatContextEmpty.classList.add('hidden');
     elements.chatContextLoaded.classList.remove('hidden');
     
-    elements.chatContextThumb.src = record.scanUrl;
+    elements.chatContextThumb.src = `${API_BASE}/${record.scanUrl}`;
     elements.chatContextType.textContent = record.modality;
     elements.chatContextSummary.textContent = `Disease Prob: ${record.probability}`;
     
@@ -569,7 +511,7 @@ function appendChatMessage(sender, text) {
     lucide.createIcons();
 }
 
-function processChatInput(userInput) {
+async function processChatInput(userInput) {
     appendChatMessage('user', userInput);
     
     // Simple response spinner simulation
@@ -585,50 +527,35 @@ function processChatInput(userInput) {
     elements.chatMessagesContainer.scrollTop = elements.chatMessagesContainer.scrollHeight;
     lucide.createIcons();
     
-    setTimeout(() => {
+    try {
+        const recordId = appState.activeContextRecord ? appState.activeContextRecord.id : null;
+        const res = await fetch(`${API_BASE}/api/chat`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: userInput, recordId })
+        });
+        
         // Remove temp spinner
         const spinner = elements.chatMessagesContainer.querySelector('.temp-spinner');
         if (spinner) spinner.remove();
-        
-        let responseText = "";
-        const cleanInput = userInput.toLowerCase();
-        
-        // Context-aware variables
-        let modalityKey = 'ecg';
-        let verdictKey = 'abnormal';
-        
-        if (appState.activeContextRecord) {
-            const r = appState.activeContextRecord;
-            modalityKey = r.modality.toLowerCase().includes('x-ray') ? 'xray' : (r.modality.toLowerCase().includes('mri') ? 'mri' : 'ecg');
-            verdictKey = r.verdict.toLowerCase();
+
+        if (!res.ok) {
+            appendChatMessage('bot', "Sorry, I encountered an error communicating with the clinic server.");
+            return;
         }
-        
-        // Parser match
-        if (cleanInput.includes('precaution') || cleanInput.includes('prevent') || cleanInput.includes('should i do')) {
-            responseText = CHATBOT_RESPONSES[modalityKey][verdictKey].precautions;
-        } else if (cleanInput.includes('symptom') || cleanInput.includes('sign') || cleanInput.includes('feel')) {
-            responseText = CHATBOT_RESPONSES[modalityKey][verdictKey].symptoms;
-        } else if (cleanInput.includes('how does this ai work') || cleanInput.includes('vision transformer') || cleanInput.includes('vit') || cleanInput.includes('dataset')) {
-            responseText = "This system uses a Vision Transformer (ViT) model, trained on biomedical images. ViT breaks medical scans down into patches (like puzzle pieces) and uses self-attention mechanisms to map dependencies, flagging anomalies such as cardiac hypertrophy or myocardial ischemia with high confidence. The models are fine-tuned on clinical datasets including MIMIC-CXR and CheXpert.";
-        } else if (cleanInput.includes('cardiomegaly')) {
-            responseText = "MediVisionmegaly is the medical term for an enlarged heart. It is not a disease itself, but rather a sign of another clinical condition such as high blood pressure, coronary artery disease, or heart valve issues.";
-        } else if (cleanInput.includes('arrhythmia')) {
-            responseText = "An arrhythmia is a disorder of the heart rate or rhythm, causing the heart to beat too fast (tachycardia), too slow (bradycardia), or irregularly.";
-        } else if (cleanInput.includes('hello') || cleanInput.includes('hi') || cleanInput.includes('hey')) {
-            responseText = "Hello! I am here to assist with your medical diagnostic questions. You can ask me to explain your scan symptoms, suggest cardiovascular precautions, or clarify how the transformer network calculates disease probabilities.";
-        } else if (cleanInput.includes('doctor') || cleanInput.includes('physician') || cleanInput.includes('appointment')) {
-            responseText = "It is highly recommended to share these AI diagnostic records with a doctor. If you are signed in as a patient, you can check the 'Medical Records' tab to see when Dr. Jenkins clinical sign-off is completed.";
-        } else {
-            // General clinical fallback
-            responseText = `As your medical chatbot assistant, I've noted your question: "${userInput}". Regarding your cardiovascular parameters, always ensure you keep a log of symptoms, maintain low sodium intake, and seek a clinician's evaluation. Let me know if you would like precautions or symptoms details for your active diagnostic case.`;
-        }
-        
-        appendChatMessage('bot', responseText);
-    }, 1200);
+        const data = await res.json();
+        appendChatMessage('bot', data.response);
+    } catch (err) {
+        console.error(err);
+        const spinner = elements.chatMessagesContainer.querySelector('.temp-spinner');
+        if (spinner) spinner.remove();
+        appendChatMessage('bot', "Network error. Please make sure the backend server is running.");
+    }
 }
 
 // --- 7. UI Table and Queue Refresh Loops ---
-function refreshDataViews() {
+async function refreshDataViews() {
+    await fetchRecords();
     refreshHistoryTable();
     refreshDoctorPortal();
 }
@@ -663,7 +590,12 @@ function refreshHistoryTable() {
             statusLabel = 'Overruled';
         }
         
-        let actionBtn = `<button class="btn btn-secondary btn-sm" onclick="triggerReportDownload('${r.id}')"><i data-lucide="download"></i> Report</button>`;
+        let actionBtn = `
+            <div style="display: flex; gap: 8px;">
+                <button class="btn btn-secondary btn-sm" onclick="triggerReportDownload('${r.id}')"><i data-lucide="download"></i> Report</button>
+                <button class="btn btn-primary btn-sm" onclick="selectRecordForChat('${r.id}')"><i data-lucide="message-square"></i> Chat</button>
+            </div>
+        `;
         
         tr.innerHTML = `
             <td>${r.date}</td>
@@ -681,6 +613,14 @@ function refreshHistoryTable() {
     
     lucide.createIcons();
 }
+
+window.selectRecordForChat = function(recordId) {
+    const record = records.find(r => r.id === recordId);
+    if (!record) return;
+    appState.activeContextRecord = record;
+    loadChatbotContext(record);
+    switchTab('tab-chatbot');
+};
 
 function refreshDoctorPortal() {
     if (currentUser.role !== 'doctor') return;
@@ -761,7 +701,7 @@ function loadRecordForDoctorReview(recordId) {
     elements.reviewAiProbabilityBadge.textContent = `${record.probability} AI Risk`;
     elements.reviewAiProbabilityBadge.className = 'status-badge ' + (record.verdict === 'Normal' ? 'normal-status' : 'critical');
     
-    elements.reviewScanImg.src = record.scanUrl;
+    elements.reviewScanImg.src = `${API_BASE}/${record.scanUrl}`;
     elements.reviewModality.textContent = record.modality;
     elements.reviewAiModel.textContent = record.modelUsed;
     elements.reviewProbability.textContent = record.probability;
@@ -826,7 +766,7 @@ window.triggerReportDownload = function(recordId) {
             
             <div class="print-diagnostics-section">
                 <div class="print-image-panel">
-                    <img src="${record.scanUrl}" alt="Scan File">
+                    <img src="${API_BASE}/${record.scanUrl}" alt="Scan File">
                     <span class="print-image-label">Fig 1. Multi-modal patient scan input</span>
                 </div>
                 <div class="print-summary-panel">
@@ -842,9 +782,9 @@ window.triggerReportDownload = function(recordId) {
             
             <div class="print-notes-section" style="margin-top: 20px; page-break-inside: avoid;">
                 <h4 style="border-bottom: 1px solid #000000; padding-bottom: 6px; color: #000000 !important; margin-bottom: 10px;">Alternative Health-Improving Guidelines</h4>
-                <p style="font-size: 0.9rem; line-height: 1.5; color: #222222;">
+                <div style="font-size: 0.9rem; line-height: 1.5; color: #222222;">
                     ${profile.alternativeRecommendations}
-                </p>
+                </div>
             </div>
             
             ${docVerdictSection}
@@ -922,32 +862,95 @@ function registerEventListeners() {
     elements.tabBtnSignIn.addEventListener('click', () => toggleAuthTabs('signin'));
     elements.tabBtnSignUp.addEventListener('click', () => toggleAuthTabs('signup'));
     
-    elements.btnQuickPatient.addEventListener('click', () => {
-        handleLogin('patient@medivision.ai', 'patient', 'David Miller');
+    // Quick login triggers
+    elements.btnQuickPatient.addEventListener('click', async () => {
+        try {
+            const res = await fetch(`${API_BASE}/api/auth/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: 'patient@medivision.ai', password: 'password' })
+            });
+            if (res.ok) {
+                const userData = await res.json();
+                handleLogin(userData.email, userData.role, userData.name);
+            } else {
+                handleLogin('patient@medivision.ai', 'patient', 'David Miller');
+            }
+        } catch (err) {
+            handleLogin('patient@medivision.ai', 'patient', 'David Miller');
+        }
     });
     
-    elements.btnQuickDoctor.addEventListener('click', () => {
-        handleLogin('doctor@medivision.ai', 'doctor', 'Dr. Sarah Jenkins, MD');
+    elements.btnQuickDoctor.addEventListener('click', async () => {
+        try {
+            const res = await fetch(`${API_BASE}/api/auth/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: 'doctor@medivision.ai', password: 'password' })
+            });
+            if (res.ok) {
+                const userData = await res.json();
+                handleLogin(userData.email, userData.role, userData.name);
+            } else {
+                handleLogin('doctor@medivision.ai', 'doctor', 'Dr. Sarah Jenkins, MD');
+            }
+        } catch (err) {
+            handleLogin('doctor@medivision.ai', 'doctor', 'Dr. Sarah Jenkins, MD');
+        }
     });
     
     elements.btnLogout.addEventListener('click', handleLogout);
     
     // Sign In Submission
-    elements.signinForm.addEventListener('submit', (e) => {
+    elements.signinForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const email = document.getElementById('signin-email').value;
-        const role = email.toLowerCase().includes('doctor') ? 'doctor' : 'patient';
-        const name = role === 'doctor' ? 'Dr. Sarah Jenkins, MD' : email.split('@')[0];
-        handleLogin(email, role, name);
+        const password = document.getElementById('signin-password').value;
+        
+        try {
+            const res = await fetch(`${API_BASE}/api/auth/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
+            if (!res.ok) {
+                const errData = await res.json();
+                alert(errData.detail || 'Invalid email or password.');
+                return;
+            }
+            const userData = await res.json();
+            handleLogin(userData.email, userData.role, userData.name);
+        } catch (err) {
+            console.error(err);
+            alert('Server connection error. Please make sure the backend is running.');
+        }
     });
 
     // Sign Up Submission
-    elements.signupForm.addEventListener('submit', (e) => {
+    elements.signupForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const email = document.getElementById('signup-email').value;
         const name = document.getElementById('signup-name').value;
         const role = document.getElementById('signup-role').value;
-        handleLogin(email, role, name);
+        const password = document.getElementById('signup-password').value;
+        
+        try {
+            const res = await fetch(`${API_BASE}/api/auth/register`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, email, role, password })
+            });
+            if (!res.ok) {
+                const errData = await res.json();
+                alert(errData.detail || 'Registration failed.');
+                return;
+            }
+            const userData = await res.json();
+            handleLogin(userData.email, userData.role, userData.name);
+        } catch (err) {
+            console.error(err);
+            alert('Server connection error. Please make sure the backend is running.');
+        }
     });
 
     // Sidebar navigation tabs
@@ -979,11 +982,7 @@ function registerEventListeners() {
     elements.fileInput.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (file) {
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                triggerDiagnosticScan(event.target.result);
-            };
-            reader.readAsDataURL(file);
+            triggerDiagnosticScan(file, false);
         }
     });
 
@@ -1004,40 +1003,60 @@ function registerEventListeners() {
         elements.dragDropZone.classList.remove('dragover');
         const file = e.dataTransfer.files[0];
         if (file && file.type.startsWith('image/')) {
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                triggerDiagnosticScan(event.target.result);
-            };
-            reader.readAsDataURL(file);
+            triggerDiagnosticScan(file, false);
         }
     });
 
     // Use Sample click listeners
-    elements.btnUseSampleEcg.addEventListener('click', () => {
+    elements.btnUseSampleEcg.addEventListener('click', async () => {
         appState.selectedModality = 'ecg';
         elements.modalityButtons.forEach(b => {
             if (b.getAttribute('data-modality') === 'ecg') b.classList.add('active');
             else b.classList.remove('active');
         });
-        triggerDiagnosticScan('assets/ecg_sample.png', true, 'abnormal');
+        
+        try {
+            const response = await fetch('assets/ecg_sample.png');
+            const blob = await response.blob();
+            const file = new File([blob], 'ecg_sample.png', { type: 'image/png' });
+            triggerDiagnosticScan(file, true);
+        } catch (err) {
+            console.error('Failed to load sample ECG', err);
+        }
     });
 
-    elements.btnUseSampleXray.addEventListener('click', () => {
+    elements.btnUseSampleXray.addEventListener('click', async () => {
         appState.selectedModality = 'xray';
         elements.modalityButtons.forEach(b => {
             if (b.getAttribute('data-modality') === 'xray') b.classList.add('active');
             else b.classList.remove('active');
         });
-        triggerDiagnosticScan('assets/xray_sample.png', true, 'abnormal');
+        
+        try {
+            const response = await fetch('assets/xray_sample.png');
+            const blob = await response.blob();
+            const file = new File([blob], 'xray_sample.png', { type: 'image/png' });
+            triggerDiagnosticScan(file, true);
+        } catch (err) {
+            console.error('Failed to load sample X-Ray', err);
+        }
     });
 
-    elements.btnUseSampleMri.addEventListener('click', () => {
+    elements.btnUseSampleMri.addEventListener('click', async () => {
         appState.selectedModality = 'mri';
         elements.modalityButtons.forEach(b => {
             if (b.getAttribute('data-modality') === 'mri') b.classList.add('active');
             else b.classList.remove('active');
         });
-        triggerDiagnosticScan('assets/mri_sample.png', true, 'abnormal');
+        
+        try {
+            const response = await fetch('assets/mri_sample.png');
+            const blob = await response.blob();
+            const file = new File([blob], 'mri_sample.png', { type: 'image/png' });
+            triggerDiagnosticScan(file, true);
+        } catch (err) {
+            console.error('Failed to load sample MRI', err);
+        }
     });
 
     // Attention Heatmap toggle
@@ -1069,7 +1088,7 @@ function registerEventListeners() {
     });
 
     // Doctor signature submission validation
-    elements.btnSubmitDoctorApproval.addEventListener('click', () => {
+    elements.btnSubmitDoctorApproval.addEventListener('click', async () => {
         const recordId = appState.activeDoctorRecordId;
         if (!recordId) return;
         
@@ -1082,20 +1101,22 @@ function registerEventListeners() {
             return;
         }
         
-        // Update record in database
-        const index = records.findIndex(r => r.id === recordId);
-        if (index !== -1) {
-            records[index].status = verdict.toLowerCase().includes('confirm') ? 'Approved' : 'Rejected';
-            records[index].doctorVerdict = verdict;
-            records[index].doctorNotes = note;
-            records[index].doctorSigned = signature;
-            
-            localStorage.setItem('medivision_records', JSON.stringify(records));
-            
+        try {
+            const res = await fetch(`${API_BASE}/api/records/${recordId}/review`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ verdict, notes: note, signature })
+            });
+            if (!res.ok) {
+                const errData = await res.json();
+                alert(errData.detail || 'Failed to submit clinical sign-off.');
+                return;
+            }
             alert(`Record ${recordId} clinical sign-off complete.`);
-            
-            // Reload and refresh
-            refreshDataViews();
+            await refreshDataViews();
+        } catch (err) {
+            console.error(err);
+            alert('Server connection error. Please make sure the backend is running.');
         }
     });
 }
