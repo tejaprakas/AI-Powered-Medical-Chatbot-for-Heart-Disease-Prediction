@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Problem-Solution Validation Engine</title>
+    <meta name="description" content="Premium AI corporate intelligence portal to sweep, scrape, and validate market overlaps across websites, reports, and social citations.">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=Outfit:wght@600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body class="bg-texture">
+    <div class="glass-bg-glow"></div>
+    
+    <!-- HEADER -->
+    <header class="app-header glass">
+        <div class="header-content">
+            <div class="logo-area" onclick="switchTab('validate')">
+                <div class="logo-box">⚡</div>
+                <div class="logo-text">
+                    <h1 class="font-heading">VALIDATOR</h1>
+                    <p class="font-mono text-logo-sub">PROBLEM-SOLUTION ENGINE</p>
+                </div>
+            </div>
+
+            <!-- NAVIGATION TAB CONTROL -->
+            <nav class="nav-tabs" id="nav-tabs-container">
+                <button id="nav-btn-validate" class="nav-btn active" onclick="switchTab('validate')">
+                    <span class="btn-icon">🔍</span>
+                    <span>Validate Solution</span>
+                </button>
+                <button id="nav-btn-discover" class="nav-btn" onclick="switchTab('discover')">
+                    <span class="btn-icon">💡</span>
+                    <span>Discover Competitors</span>
+                </button>
+                <button id="nav-btn-history" class="nav-btn" onclick="switchTab('history')">
+                    <span class="btn-icon">📁</span>
+                    <span>Workspace History</span>
+                </button>
+            </nav>
+
+            <!-- AUTH & SESSION LOGINS -->
+            <div class="auth-area">
+                <div id="auth-unlogged" class="auth-unlogged">
+                    <button class="brutalist-btn yellow" onclick="triggerMockLogin()">Sign In</button>
+                </div>
+                <div id="auth-logged" class="auth-logged hidden">
+                    <img id="user-avatar" src="" alt="Avatar" class="avatar-img">
+                    <div class="user-info">
+                        <span id="user-name" class="user-name-text">Local Sandbox</span>
+                        <span id="user-email" class="user-email-text font-mono">dev@sandbox</span>
+                    </div>
+                    <button class="logout-btn" onclick="triggerLogout()" title="Sign Out">✕</button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN BODY PORTAL -->
+    <main class="max-w-7xl mx-auto px-4 py-8">
+        
+        <!-- ==================== TAB 1: VALIDATION PORTAL ==================== -->
+        <section id="tab-validate" class="tab-section">
+            <div class="main-split-container">
+                
+                <!-- Left Input Panel (30% width) -->
+                <div class="left-input-panel sidebar-panel-card">
+                    <div class="bento-header" style="margin-bottom: 1.5rem; padding-bottom: 1rem;">
+                        <div class="bento-icon-box yellow">⚡</div>
+                        <div>
+                            <h2 class="font-heading text-xl font-black">Overlap Validator</h2>
+                            <p class="font-mono text-zinc-500 text-[9px] tracking-wider">COMPARE SOLUTIONS USP</p>
+                        </div>
+                    </div>
+
+                    <form id="validation-form" onsubmit="event.preventDefault(); runValidation();" class="space-y-6">
+                        <div class="input-group">
+                            <label for="problem-input" class="font-mono label-text">1. TARGET PROBLEM</label>
+                            <textarea id="problem-input" required placeholder="Describe the acute customer pain point..." minlength="10"></textarea>
+                            <span class="character-count" id="problem-count">0 characters</span>
+                        </div>
+
+                        <div class="input-group" style="margin-top: 1rem;">
+                            <label for="solution-input" class="font-mono label-text">2. PROPOSED SOLUTION</label>
+                            <textarea id="solution-input" required placeholder="Detail your solution and how it addresses the problem..." minlength="10"></textarea>
+                            <span class="character-count" id="solution-count">0 characters</span>
+                        </div>
+
+                        <div style="margin-top: 1.5rem; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 1.25rem;">
+                            <button type="submit" id="validate-btn" class="validate-gradient-btn font-heading flex-center gap-2">
+                                <span>Validate Concept</span>
+                                <span class="arrow-icon">→</span>
+                            </button>
+                            <div class="keyboard-tip font-mono text-zinc-500 mt-3" style="text-align: center; font-size: 10px;">
+                                <span class="kbd">Ctrl</span> + <span class="kbd">Enter</span> triggers validator
+                            </div>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Right Dashboard Panel (70% width) -->
+                <div class="right-dashboard-panel">
+                    
+                    <!-- Empty State -->
+                    <div id="validate-empty" class="bento-item empty-placeholder glossy-glass" style="width: 100%; min-height: 480px;">
+                        <div class="empty-icon font-mono">?</div>
+                        <h3 class="font-heading text-xl">Awaiting Intelligence Analysis</h3>
+                        <p>Enter your problem-solution concept on the left to query search engine indexes, extract document attachments, and evaluate market saturation statistics.</p>
+                    </div>
+
+                    <!-- Loading State -->
+                    <div id="validate-loading" class="bento-item loading-placeholder glossy-glass hidden" style="width: 100%; min-height: 480px;">
+                        <div class="spinner-orbital"></div>
+                        <h3 class="font-heading text-xl mt-4">Performing Market Validation...</h3>
+                        <p id="validate-status-msg" class="font-mono text-sm text-zinc-400">Sweeping global index layers for competitor overlaps...</p>
+                    </div>
+
+                    <!-- Validation Output View -->
+                    <div id="validate-results" class="grid-nested hidden" style="width: 100%;">
+                        
+                        <!-- Showcase centered matching score banner -->
+                        <div class="bento-item summary-banner glossy-glass" style="padding: 1.5rem 2rem;">
+                            <div class="summary-content-row">
+                                
+                                <!-- Central Scored Gauge -->
+                                <div class="gauge-showcase-column">
+                                    <div class="gauge-svg-container">
+                                        <svg class="gauge-svg" viewBox="0 0 100 50">
+                                            <!-- Background Arc -->
+                                            <path class="gauge-bg-arc" d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="rgba(255, 255, 255, 0.08)" stroke-width="8" stroke-linecap="round"></path>
+                                            <!-- Progress Arc -->
+                                            <path id="gauge-progress-arc" class="gauge-progress-arc" d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="url(#gauge-gradient)" stroke-width="8" stroke-linecap="round" stroke-dasharray="125.6" stroke-dashoffset="125.6"></path>
+                                            
+                                            <defs>
+                                                <linearGradient id="gauge-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                                                    <stop offset="0%" stop-color="#6366f1"></stop>
+                                                    <stop offset="100%" stop-color="#a855f7"></stop>
+                                                </linearGradient>
+                                            </defs>
+                                        </svg>
+                                        <div class="gauge-text-overlay">
+                                            <span id="validation-score-number">0</span><span class="pct">%</span>
+                                        </div>
+                                    </div>
+                                    <span class="font-mono text-[9px] text-zinc-400 mt-2 uppercase tracking-widest">Problem-Solution Overlap</span>
+                                </div>
+
+                                <!-- Analysis Details -->
+                                <div class="analysis-column">
+                                    <div class="badge-row justify-between">
+                                        <div class="flex items-center gap-2">
+                                            <span class="font-mono text-xs text-zinc-500">COMPETITIVE OVERLAP:</span>
+                                            <span id="validation-tier-badge" class="brutalist-badge font-mono">UNKNOWN</span>
+                                        </div>
+                                        <!-- Export options -->
+                                        <div class="export-actions-row">
+                                            <button class="export-btn font-mono" onclick="exportData('validation', 'pdf')">📄 Export PDF</button>
+                                            <button class="export-btn font-mono" onclick="exportData('validation', 'csv')">📊 Export Excel</button>
+                                        </div>
+                                    </div>
+                                    <h3 class="font-heading text-xl font-bold mt-2 text-white">Validation Executive Summary</h3>
+                                    <p id="validation-analysis-text" class="text-zinc-300 mt-2 text-xs leading-relaxed">Evaluating competitor overlaps...</p>
+                                </div>
+
+                            </div>
+                        </div>
+
+                        <!-- THREE-COLUMN RESULT GRID -->
+                        <div class="dashboard-columns-grid">
+                            
+                            <!-- Column 1: Verified Web Competitors -->
+                            <div class="bento-item flex-column h-480 glossy-glass explicit-lines" style="padding: 1.25rem;">
+                                <div class="column-header">
+                                    <div class="title-row">
+                                        <span class="col-icon text-yellow">📂</span>
+                                        <h3 class="font-heading font-bold text-sm">Verified Competitors</h3>
+                                    </div>
+                                    <div class="column-header-actions">
+                                        <span id="v-sources-count" class="badge-count font-mono">0</span>
+                                        <button class="col-download-btn" onclick="exportColumnData('validation', 'sources')" title="Download Competitors CSV">📥</button>
+                                    </div>
+                                </div>
+                                <div id="v-sources-container" class="scrollable-content">
+                                    <!-- Dynamic brand competitor cards -->
+                                </div>
+                            </div>
+
+                            <!-- Column 2: Tech Reports & PDFs -->
+                            <div class="bento-item flex-column h-480 glossy-glass explicit-lines" style="padding: 1.25rem;">
+                                <div class="column-header">
+                                    <div class="title-row">
+                                        <span class="col-icon text-blue">📥</span>
+                                        <h3 class="font-heading font-bold text-sm">Spreadsheets & PDFs</h3>
+                                    </div>
+                                    <div class="column-header-actions">
+                                        <span id="v-assets-count" class="badge-count font-mono">0</span>
+                                        <button class="col-download-btn" onclick="exportColumnData('validation', 'assets')" title="Download Documents CSV">📥</button>
+                                    </div>
+                                </div>
+                                <div id="v-assets-container" class="scrollable-content">
+                                    <!-- Dynamic downloadable document cards -->
+                                </div>
+                            </div>
+
+                            <!-- Column 3: Social & Video Citations -->
+                            <div class="bento-item flex-column h-480 glossy-glass explicit-lines" style="padding: 1.25rem;">
+                                <div class="column-header">
+                                    <div class="title-row">
+                                        <span class="col-icon text-purple">🎬</span>
+                                        <h3 class="font-heading font-bold text-sm">Media & Code Citations</h3>
+                                    </div>
+                                    <div class="column-header-actions">
+                                        <span id="v-social-count" class="badge-count font-mono">0</span>
+                                        <button class="col-download-btn" onclick="exportColumnData('validation', 'social')" title="Download Citations CSV">📥</button>
+                                    </div>
+                                </div>
+                                <div id="v-social-container" class="scrollable-content">
+                                    <!-- Dynamic social citation cards -->
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== TAB 2: DISCOVERY PORTAL ==================== -->
+        <section id="tab-discover" class="tab-section hidden">
+            <div class="main-split-container">
+                
+                <!-- Left Input Panel (30% width) -->
+                <div class="left-input-panel sidebar-panel-card">
+                    <div class="bento-header" style="margin-bottom: 1.5rem; padding-bottom: 1rem;">
+                        <div class="bento-icon-box blue">⚡</div>
+                        <div>
+                            <h2 class="font-heading text-xl font-black">Market Discovery</h2>
+                            <p class="font-mono text-zinc-500 text-[9px] tracking-wider">HARVEST SOLUTIONS</p>
+                        </div>
+                    </div>
+
+                    <form id="discovery-form" onsubmit="event.preventDefault(); runDiscovery();" class="space-y-6">
+                        <div class="input-group">
+                            <label for="discover-problem-input" class="font-mono label-text">TARGET PROBLEM AREA</label>
+                            <textarea id="discover-problem-input" required placeholder="Define the problem area or service bottleneck you want to investigate..." minlength="10"></textarea>
+                            <span class="character-count" id="discover-problem-count">0 characters</span>
+                        </div>
+
+                        <div style="margin-top: 1.5rem; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 1.25rem;">
+                            <button type="submit" id="discover-btn" class="validate-gradient-btn font-heading flex-center gap-2" style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%) !important; box-shadow: 0 8px 24px rgba(59, 130, 246, 0.35) !important;">
+                                <span>Harvest Competitors</span>
+                                <span class="arrow-icon">→</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Right Dashboard Panel (70% width) -->
+                <div class="right-dashboard-panel">
+                    
+                    <!-- Empty State -->
+                    <div id="discover-empty" class="bento-item empty-placeholder glossy-glass" style="width: 100%; min-height: 480px;">
+                        <div class="empty-icon font-mono">?</div>
+                        <h3 class="font-heading text-xl">Awaiting Discovery Inputs</h3>
+                        <p>Provide a problem statement on the left to search competitor landscape, identify top startup approaches, and isolate citations.</p>
+                    </div>
+
+                    <!-- Loading State -->
+                    <div id="discover-loading" class="bento-item loading-placeholder glossy-glass hidden" style="width: 100%; min-height: 480px;">
+                        <div class="spinner-orbital"></div>
+                        <h3 class="font-heading text-xl mt-4">Discovering Solutions...</h3>
+                        <p id="discover-status-msg" class="font-mono text-sm text-zinc-400">Sweeping global index layers for problem solutions...</p>
+                    </div>
+
+                    <!-- Discovery Output View -->
+                    <div id="discover-results" class="grid-nested hidden" style="width: 100%;">
+                        
+                        <!-- AI Discovery Summary -->
+                        <div class="bento-item summary-banner blue-border glossy-glass" style="padding: 1.5rem 2rem;">
+                            <div class="summary-content justify-between flex-wrap gap-4">
+                                <div class="analysis-column">
+                                    <h3 class="font-heading text-xl font-bold text-white">Competitor Landscape AI Analysis</h3>
+                                    <p id="discover-summary-text" class="text-zinc-300 mt-2 text-xs leading-relaxed">Synthesizing solution summaries...</p>
+                                </div>
+                                <!-- Export options -->
+                                <div class="export-actions-row flex-shrink-0 self-start">
+                                    <button class="export-btn font-mono" onclick="exportData('discovery', 'pdf')">📄 Export PDF</button>
+                                    <button class="export-btn font-mono" onclick="exportData('discovery', 'csv')">📊 Export Excel</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Discovered Solution Cards -->
+                        <div class="mt-4">
+                            <h4 class="font-mono label-text mb-3" style="font-size: 10px;">IDENTIFIED MARKET APPROACHES</h4>
+                            <div id="discovered-solutions-cards" class="brand-card-grid">
+                                <!-- Dynamic Solution Cards -->
+                            </div>
+                        </div>
+
+                        <!-- THREE-COLUMN RESULTS GRID FOR DISCOVERY -->
+                        <div class="dashboard-columns-grid">
+                            
+                            <!-- Column 1: Verified Links -->
+                            <div class="bento-item flex-column h-480 glossy-glass explicit-lines" style="padding: 1.25rem;">
+                                <div class="column-header">
+                                    <div class="title-row">
+                                        <span class="col-icon text-yellow">📂</span>
+                                        <h3 class="font-heading font-bold text-sm">Verified Portals</h3>
+                                    </div>
+                                    <div class="column-header-actions">
+                                        <span id="d-sources-count" class="badge-count font-mono">0</span>
+                                        <button class="col-download-btn" onclick="exportColumnData('discovery', 'sources')" title="Download Portals CSV">📥</button>
+                                    </div>
+                                </div>
+                                <div id="d-sources-container" class="scrollable-content">
+                                    <!-- Dynamic brand competitor cards -->
+                                </div>
+                            </div>
+
+                            <!-- Column 2: Document Downloads -->
+                            <div class="bento-item flex-column h-480 glossy-glass explicit-lines" style="padding: 1.25rem;">
+                                <div class="column-header">
+                                    <div class="title-row">
+                                        <span class="col-icon text-blue">📥</span>
+                                        <h3 class="font-heading font-bold text-sm">Reports & Manuals</h3>
+                                    </div>
+                                    <div class="column-header-actions">
+                                        <span id="d-assets-count" class="badge-count font-mono">0</span>
+                                        <button class="col-download-btn" onclick="exportColumnData('discovery', 'assets')" title="Download Documents CSV">📥</button>
+                                    </div>
+                                </div>
+                                <div id="d-assets-container" class="scrollable-content">
+                                    <!-- Dynamic downloadable document cards -->
+                                </div>
+                            </div>
+
+                            <!-- Column 3: Social & Video Citations -->
+                            <div class="bento-item flex-column h-480 glossy-glass explicit-lines" style="padding: 1.25rem;">
+                                <div class="column-header">
+                                    <div class="title-row">
+                                        <span class="col-icon text-purple">🎬</span>
+                                        <h3 class="font-heading font-bold text-sm">Media Citations</h3>
+                                    </div>
+                                    <div class="column-header-actions">
+                                        <span id="d-social-count" class="badge-count font-mono">0</span>
+                                        <button class="col-download-btn" onclick="exportColumnData('discovery', 'social')" title="Download Citations CSV">📥</button>
+                                    </div>
+                                </div>
+                                <div id="d-social-container" class="scrollable-content">
+                                    <!-- Dynamic YouTube/LinkedIn listings -->
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== TAB 3: WORKSPACE HISTORY ==================== -->
+        <section id="tab-history" class="tab-section hidden">
+            <div class="bento-grid">
+                
+                <!-- Summary Header -->
+                <div class="bento-item p-8 col-span-full glossy-glass">
+                    <div class="bento-header justify-between items-center">
+                        <div class="flex items-center gap-3">
+                            <div class="bento-icon-box dark">📁</div>
+                            <div>
+                                <h2 class="font-heading text-2xl font-black">Workspace Intelligence Records</h2>
+                                <p class="font-mono text-zinc-500 text-xs tracking-wider">SAVED COMPETITOR VALIDATIONS & DISCOVERIES</p>
+                            </div>
+                        </div>
+                        <button class="brutalist-btn flex-center font-mono text-xs gap-1" onclick="loadHistoryData()">
+                            <span>Sync Records</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Empty State -->
+                <div id="history-empty" class="bento-item col-span-full empty-placeholder glossy-glass">
+                    <div class="empty-icon font-mono">📁</div>
+                    <h3 class="font-heading text-xl">No Records Found</h3>
+                    <p>You have not run any problem validations or discoveries in this sandbox yet. Your database entries will populate here automatically.</p>
+                </div>
+
+                <!-- Double Grid for History Lists -->
+                <div id="history-lists" class="col-span-full grid-columns-2 hidden">
+                    
+                    <!-- Validations History -->
+                    <div class="bento-item flex-column h-540 glossy-glass explicit-lines">
+                        <div class="column-header">
+                            <h3 class="font-heading font-bold text-lg text-yellow">Validation History</h3>
+                            <span id="h-validations-count" class="badge-count font-mono">0</span>
+                        </div>
+                        <div id="h-validations-container" class="scrollable-content mt-4">
+                            <!-- Dynamic -->
+                        </div>
+                    </div>
+
+                    <!-- Discoveries History -->
+                    <div class="bento-item flex-column h-540 glossy-glass explicit-lines">
+                        <div class="column-header">
+                            <h3 class="font-heading font-bold text-lg text-blue">Discovery History</h3>
+                            <span id="h-discoveries-count" class="badge-count font-mono">0</span>
+                        </div>
+                        <div id="h-discoveries-container" class="scrollable-content mt-4">
+                            <!-- Dynamic -->
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Reto Toast toaster -->
+    <div id="sonner-toaster" class="sonner-toaster"></div>
+
+    <script src="/app.js"></script>
+</body>
+</html>
