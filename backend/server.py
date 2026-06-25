@@ -690,22 +690,24 @@ def chat(req: ChatRequest, db: UnifiedDB = Depends(get_db)):
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
+FRONTEND_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "frontend"))
+
 # Serve index.html at root
 @app.get("/")
 def read_root():
-    return FileResponse("index.html")
+    return FileResponse(os.path.join(FRONTEND_DIR, "index.html"))
 
 # Serve app.js and style.css
 @app.get("/app.js")
 def read_js():
-    return FileResponse("app.js")
+    return FileResponse(os.path.join(FRONTEND_DIR, "app.js"))
 
 @app.get("/style.css")
 def read_css():
-    return FileResponse("style.css")
+    return FileResponse(os.path.join(FRONTEND_DIR, "style.css"))
 
 # Mount assets and uploads
-app.mount("/assets", StaticFiles(directory="assets"), name="assets")
+app.mount("/assets", StaticFiles(directory=os.path.join(FRONTEND_DIR, "assets")), name="assets")
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 if __name__ == "__main__":
