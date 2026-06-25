@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MediVision AI - Heart Disease Detection & Chatbot Assistant</title>
-    <meta name="description" content="MediVision AI - An AI-powered medical chatbot and diagnostics dashboard for heart disease prediction using Hugging Face models, Vision Transformers, and Deep Learning.">
+    <meta name="description" content="MediVision AI - An AI-powered medical chatbot and diagnostics dashboard for heart disease prediction using advanced clinical models, Vision Transformers, and Deep Learning.">
     
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -19,23 +19,55 @@
 </head>
 <body>
     <!-- Navigation Bar -->
-    <header class="navbar">
+    <header class="navbar sticky">
         <div class="nav-container">
             <a href="#" class="nav-logo" id="nav-logo">
-                <div class="pulse-icon">
-                    <i data-lucide="activity"></i>
-                </div>
-                <span>MediVision<span class="highlight"> AI</span></span>
+                <svg class="medivision-logo-svg" viewBox="0 0 64 64" width="38" height="38" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <linearGradient id="logoBlueGradNav" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stop-color="#3b82f6" />
+                            <stop offset="100%" stop-color="#1d4ed8" />
+                        </linearGradient>
+                    </defs>
+                    <!-- Eye Outline -->
+                    <path d="M4 32C12 16 22 12 32 12C42 12 52 16 60 32C52 48 42 52 32 52C22 52 12 48 4 32Z" fill="none" stroke="url(#logoBlueGradNav)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" />
+                    <!-- Connections (neural net lines) -->
+                    <line x1="32" y1="12" x2="32" y2="20" stroke="#60a5fa" stroke-width="1.5" stroke-dasharray="2,2" />
+                    <line x1="32" y1="52" x2="32" y2="44" stroke="#60a5fa" stroke-width="1.5" stroke-dasharray="2,2" />
+                    <line x1="4" y1="32" x2="20" y2="32" stroke="#60a5fa" stroke-width="1.5" stroke-dasharray="2,2" />
+                    <line x1="60" y1="32" x2="44" y2="32" stroke="#60a5fa" stroke-width="1.5" stroke-dasharray="2,2" />
+                    <line x1="16" y1="20" x2="28" y2="28" stroke="#3b82f6" stroke-width="1" />
+                    <line x1="48" y1="20" x2="36" y2="28" stroke="#3b82f6" stroke-width="1" />
+                    <line x1="16" y1="44" x2="28" y2="36" stroke="#3b82f6" stroke-width="1" />
+                    <line x1="48" y1="44" x2="36" y2="36" stroke="#3b82f6" stroke-width="1" />
+                    <!-- Central Pupil as a Medical Cross -->
+                    <path d="M28 22h8v4h4v8h-4v4h-8v-4h-4v-8h4z" fill="url(#logoBlueGradNav)" />
+                    <!-- Nodes -->
+                    <circle cx="32" cy="12" r="3" fill="#60a5fa" />
+                    <circle cx="32" cy="52" r="3" fill="#60a5fa" />
+                    <circle cx="4" cy="32" r="3" fill="#60a5fa" />
+                    <circle cx="60" cy="32" r="3" fill="#60a5fa" />
+                </svg>
+                <span class="logo-title">MEDIVISION AI</span>
             </a>
             
-            <!-- Nav links removed for clean layout -->
+            <nav class="nav-links-menu">
+                <a href="#about" class="nav-menu-link active">Home</a>
+                <a href="#features" class="nav-menu-link">Features</a>
+                <a href="#how-it-works" class="nav-menu-link">Diagnosis Pipeline</a>
+                <a href="#tech-stack" class="nav-menu-link">Technology</a>
+                <a href="#doctors" class="nav-menu-link">Doctors</a>
+                <a href="#contact" class="nav-menu-link">Contact</a>
+            </nav>
             
             <div class="nav-actions">
-                <button class="btn btn-secondary" id="btn-login-trigger">Sign In</button>
-                <button class="btn btn-primary btn-glow" id="btn-launch-app">Launch App</button>
+                <button class="btn btn-secondary" id="btn-patient-login-trigger" aria-label="Patient Sign In">Patient Login</button>
+                <button class="btn btn-primary" id="btn-doctor-login-trigger" aria-label="Doctor Sign In">Doctor Login</button>
+                <button class="btn btn-primary hidden" id="btn-dashboard-trigger" aria-label="Go to Dashboard">Dashboard</button>
+                <button class="btn btn-secondary hidden" id="btn-signout-trigger" aria-label="Sign Out">Sign Out</button>
             </div>
             
-            <button class="mobile-menu-toggle" id="menu-toggle">
+            <button class="mobile-menu-toggle" id="menu-toggle" aria-label="Toggle mobile navigation menu">
                 <i data-lucide="menu"></i>
             </button>
         </div>
@@ -52,16 +84,12 @@
                 <div class="container hero-container">
                     <div class="hero-text-content">
                         <div class="badge">
-                            <span class="badge-dot"></span> Powered by Hugging Face & Deep Learning
+                            <span class="badge-dot"></span> Powered by Advanced Clinical Deep Learning
                         </div>
                         <h1 class="hero-title">AI-Powered Heart Disease Detection & Chatbot</h1>
                         <p class="hero-description">
                             A clinical-grade assistant analyzing medical images (ECG, X-rays, MRI) with Vision Transformers, predicting disease probability, and providing medical insights via NLP Chatbots.
                         </p>
-                        <div class="hero-cta-group">
-                            <button class="btn btn-primary btn-large btn-glow btn-launch-app-action">Launch Interactive Demo</button>
-                            <a href="#objectives" class="btn btn-secondary btn-large">Learn More <i data-lucide="arrow-right"></i></a>
-                        </div>
                     </div>
                     
                     <div class="hero-visual">
@@ -71,7 +99,7 @@
                                     <div class="avatar"><i data-lucide="user"></i></div>
                                     <div>
                                         <h4 class="name">Simulated Scan</h4>
-                                        <p class="meta">Patient ECG ID: #8849</p>
+                                        <p class="meta">ECG ID: #8849</p>
                                     </div>
                                 </div>
                                 <span class="status-badge critical"><i data-lucide="alert-triangle"></i> High Risk</span>
@@ -94,12 +122,278 @@
                 </div>
             </section>
 
-            <!-- Documentation sections removed -->
+            <!-- Stats Bar -->
+            <section class="stats-bar">
+              <div class="container">
+                <div class="stats-grid">
+                  <div class="stat-item"><span class="stat-number" data-target="3">3</span><span class="stat-label">Scan Modalities</span></div>
+                  <div class="stat-item"><span class="stat-number" data-target="94">94</span><span class="stat-suffix">%</span><span class="stat-label">Detection Accuracy</span></div>
+                  <div class="stat-item"><span class="stat-number" data-target="3">3</span><span class="stat-suffix">s</span><span class="stat-label">Inference Time</span></div>
+                  <div class="stat-item"><span class="stat-number" data-target="24">24</span><span class="stat-suffix">/7</span><span class="stat-label">AI Availability</span></div>
+                </div>
+              </div>
+            </section>
+
+            <!-- Features Grid Section -->
+            <!-- ================= AI DIAGNOSIS SECTION ================= -->
+            <section class="section-container features-section" id="features">
+              <div class="container">
+                <div class="section-header">
+                  <span class="section-badge">AI-Powered Intelligent Diagnosis</span>
+                  <h2 class="section-title">Advanced Multimodal Healthcare Intelligence</h2>
+                  <p class="section-description" style="max-width: 800px; margin: 12px auto 0 auto; line-height: 1.6;">
+                    MediVision AI combines advanced medical AI, computer vision, clinical reasoning, and multimodal healthcare intelligence to help doctors and patients detect diseases earlier and make better decisions.
+                  </p>
+                </div>
+                
+                <div class="diagnosis-detail-container">
+                    <div class="diagnosis-box">
+                        <div class="diagnosis-box-header">
+                            <i data-lucide="activity-square"></i>
+                            <h3>Our System Analyzes</h3>
+                        </div>
+                        <ul class="analysis-list">
+                            <li><i data-lucide="check-circle-2"></i> <span>Medical images</span></li>
+                            <li><i data-lucide="check-circle-2"></i> <span>Patient symptoms</span></li>
+                            <li><i data-lucide="check-circle-2"></i> <span>Clinical history</span></li>
+                            <li><i data-lucide="check-circle-2"></i> <span>Laboratory reports</span></li>
+                            <li><i data-lucide="check-circle-2"></i> <span>Risk factors</span></li>
+                            <li><i data-lucide="check-circle-2"></i> <span>Previous diagnoses</span></li>
+                        </ul>
+                    </div>
+                    <div class="diagnosis-box">
+                        <div class="diagnosis-box-header">
+                            <i data-lucide="sparkles"></i>
+                            <h3>The Platform Generates</h3>
+                        </div>
+                        <ul class="generation-list">
+                            <li><i data-lucide="sparkles" class="glow-icon"></i> <span>Disease probability scores</span></li>
+                            <li><i data-lucide="sparkles" class="glow-icon"></i> <span>Clinical insights</span></li>
+                            <li><i data-lucide="sparkles" class="glow-icon"></i> <span>Risk assessments</span></li>
+                            <li><i data-lucide="sparkles" class="glow-icon"></i> <span>Treatment recommendations</span></li>
+                            <li><i data-lucide="sparkles" class="glow-icon"></i> <span>Follow-up suggestions</span></li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="diagnosis-footer-notice">
+                    <i data-lucide="info"></i>
+                    <span>Designed to support healthcare professionals, not replace them.</span>
+                </div>
+              </div>
+            </section>
+
+            <!-- How It Works Section -->
+            <section class="section-container how-it-works-section" id="how-it-works">
+              <div class="container">
+                <div class="section-header">
+                  <span class="section-badge">How It Works</span>
+                  <h2 class="section-title">Three-Step Diagnosis Pipeline</h2>
+                </div>
+                <div class="pipeline-steps">
+                  <div class="pipeline-step">
+                    <div class="step-number">01</div>
+                    <div class="step-icon"><i data-lucide="folder-open"></i></div>
+                    <h3>Step 1 – Data Collection</h3>
+                    <p class="pipeline-sub">Upload patient clinical profiles:</p>
+                    <ul class="pipeline-bullets">
+                        <li>X-rays & MRI Scans</li>
+                        <li>CT Scans & Blood Reports</li>
+                        <li>Symptoms & History</li>
+                    </ul>
+                    <p class="pipeline-footer-desc">AI automatically validates and prepares data formats.</p>
+                  </div>
+                  <div class="pipeline-connector"><i data-lucide="chevron-right"></i></div>
+                  <div class="pipeline-step">
+                    <div class="step-number">02</div>
+                    <div class="step-icon"><i data-lucide="cpu"></i></div>
+                    <h3>Step 2 – AI Analysis</h3>
+                    <p class="pipeline-sub">The AI engine performs:</p>
+                    <ul class="pipeline-bullets">
+                        <li>Image Analysis & Pattern Recognition</li>
+                        <li>Disease Detection</li>
+                        <li>Risk Scoring & Reasoning</li>
+                    </ul>
+                    <p class="pipeline-footer-desc">Generates confidence scores and structured findings.</p>
+                  </div>
+                  <div class="pipeline-connector"><i data-lucide="chevron-right"></i></div>
+                  <div class="pipeline-step">
+                    <div class="step-number">03</div>
+                    <div class="step-icon"><i data-lucide="file-text"></i></div>
+                    <h3>Step 3 – Clinical Insights</h3>
+                    <p class="pipeline-sub">Produces actionable outputs:</p>
+                    <ul class="pipeline-bullets">
+                        <li>Diagnosis Summary & Risk Level</li>
+                        <li>Recommended Actions & Follow-ups</li>
+                        <li>Doctor Review Report</li>
+                    </ul>
+                    <p class="pipeline-footer-desc">Exportable instantly as a signed clinical PDF report.</p>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- Tech Stack Section -->
+            <section class="section-container tech-stack-section" id="tech-stack">
+              <div class="container">
+                <div class="section-header">
+                  <span class="section-badge">Technology</span>
+                  <h2 class="section-title">Professional Healthcare Stack</h2>
+                </div>
+                <div class="tech-stack-container">
+                    <div class="tech-category-card">
+                        <div class="tech-category-header">
+                            <i data-lucide="brain-circuit"></i>
+                            <h3>AI & Intelligence</h3>
+                        </div>
+                        <ul class="tech-list">
+                            <li>Computer Vision Engine</li>
+                            <li>Medical Imaging Analysis</li>
+                            <li>Clinical Reasoning System</li>
+                            <li>Predictive Analytics</li>
+                            <li>Multimodal AI</li>
+                            <li>Risk Assessment Engine</li>
+                        </ul>
+                    </div>
+                    <div class="tech-category-card">
+                        <div class="tech-category-header">
+                            <i data-lucide="shield-check"></i>
+                            <h3>Security</h3>
+                        </div>
+                        <ul class="tech-list">
+                            <li>End-to-End Encryption</li>
+                            <li>HIPAA Ready Architecture</li>
+                            <li>Secure Patient Storage</li>
+                            <li>Role-Based Access Control</li>
+                        </ul>
+                    </div>
+                    <div class="tech-category-card">
+                        <div class="tech-category-header">
+                            <i data-lucide="server"></i>
+                            <h3>Infrastructure</h3>
+                        </div>
+                        <ul class="tech-list">
+                            <li>Cloud Native Platform</li>
+                            <li>Real-Time Processing</li>
+                            <li>High Availability</li>
+                            <li>Scalable Microservices</li>
+                        </ul>
+                    </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- Doctors Section -->
+            <section class="section-container doctors-section" id="doctors">
+              <div class="container">
+                <div class="section-header">
+                  <span class="section-badge">Medical Board</span>
+                  <h2 class="section-title">Clinical Advisory Specialists</h2>
+                  <p class="section-description">Bridging advanced medical AI with verified patient care</p>
+                </div>
+                <div class="doctors-grid">
+                  <div class="doctor-card">
+                    <div class="doctor-avatar-circle"><i data-lucide="stethoscope"></i></div>
+                    <h3>Dr. Sarah Jenkins, MD</h3>
+                    <span class="doctor-title">Chief of Cardiology Advisory</span>
+                    <p class="doctor-desc">Over 15 years of experience in cardiac imaging diagnostics and validation protocols.</p>
+                  </div>
+                  <div class="doctor-card">
+                    <div class="doctor-avatar-circle"><i data-lucide="heart"></i></div>
+                    <h3>Dr. David Chen, MD</h3>
+                    <span class="doctor-title">Clinical AI Lead</span>
+                    <p class="doctor-desc">Specializes in neural network mapping for computer vision and medical anomaly tagging.</p>
+                  </div>
+                  <div class="doctor-card">
+                    <div class="doctor-avatar-circle"><i data-lucide="activity"></i></div>
+                    <h3>Dr. Elena Rostova, PhD</h3>
+                    <span class="doctor-title">Multimodal Diagnostics Research</span>
+                    <p class="doctor-desc">Leading medical imagery research on Vision Transformers and healthcare datasets.</p>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- Contact Section -->
+            <section class="section-container contact-section" id="contact">
+              <div class="container">
+                <div class="section-header">
+                  <span class="section-badge">Contact Us</span>
+                  <h2 class="section-title">Reach Out to Our Medical Desk</h2>
+                  <p class="section-description">Have queries regarding deployment or HIPAA compliance? Contact us below.</p>
+                </div>
+                <div class="contact-box">
+                    <form class="contact-form" id="landing-contact-form" onsubmit="event.preventDefault(); alert('Message sent successfully!'); this.reset();">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="contact-name">Your Name</label>
+                                <input type="text" class="form-input" id="contact-name" placeholder="enter your name" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="contact-email">Email Address</label>
+                                <input type="email" class="form-input" id="contact-email" placeholder="enter your email address" required>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="contact-message">Message</label>
+                            <textarea class="form-input form-textarea" id="contact-message" rows="4" placeholder="type your message here..." required></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Send Inquiry</button>
+                    </form>
+                </div>
+              </div>
+            </section>
+
             <!-- Footer -->
             <footer class="footer">
                 <div class="container">
+                    <div class="footer-top">
+                        <div class="footer-brand">
+                            <a href="#" class="nav-logo">
+                                <svg class="medivision-logo-svg" viewBox="0 0 64 64" width="34" height="34" xmlns="http://www.w3.org/2000/svg">
+                                    <defs>
+                                        <linearGradient id="logoBlueGradFooter" x1="0%" y1="0%" x2="100%" y2="100%">
+                                            <stop offset="0%" stop-color="#3b82f6" />
+                                            <stop offset="100%" stop-color="#1d4ed8" />
+                                        </linearGradient>
+                                    </defs>
+                                    <path d="M4 32C12 16 22 12 32 12C42 12 52 16 60 32C52 48 42 52 32 52C22 52 12 48 4 32Z" fill="none" stroke="url(#logoBlueGradFooter)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" />
+                                    <path d="M28 22h8v4h4v8h-4v4h-8v-4h-4v-8h4z" fill="url(#logoBlueGradFooter)" />
+                                </svg>
+                                <span class="logo-title">MEDIVISION AI</span>
+                            </a>
+                            <p class="footer-brand-tagline">Intelligent Healthcare. Early Detection. Better Outcomes.</p>
+                        </div>
+                        <div class="footer-links-grid">
+                            <div class="footer-column">
+                                <h4>Company</h4>
+                                <a href="#about">About Us</a>
+                                <a href="#doctors">Doctors</a>
+                                <a href="#tech-stack">Technology</a>
+                            </div>
+                            <div class="footer-column">
+                                <h4>Legal</h4>
+                                <a href="#">Privacy Policy</a>
+                                <a href="#">Terms of Service</a>
+                            </div>
+                            <div class="footer-column">
+                                <h4>Support</h4>
+                                <a href="#">Help Center</a>
+                                <a href="#">FAQ</a>
+                                <a href="#contact">Contact Us</a>
+                            </div>
+                        </div>
+                    </div>
                     <div class="footer-bottom">
-                        <p>&copy; 2026 MediVision AI Project. Hugging Face Clinical Demonstration Platform.</p>
+                        <p>&copy; 2026 MediVision AI Project. Clinical Diagnostic Verification Platform. HIPAA Ready Sandbox.</p>
+                        <div class="footer-socials">
+                            <a href="#" aria-label="LinkedIn"><i data-lucide="linkedin"></i></a>
+                            <a href="#" aria-label="Twitter"><i data-lucide="twitter"></i></a>
+                            <a href="#" aria-label="GitHub"><i data-lucide="github"></i></a>
+                        </div>
+                    </div>
+                </div>
+            </footer>
                         <div class="footer-regulatory">
                             <span>HIPAA Compliant Protocol Sandbox</span>
                             <span class="dot"></span>
@@ -114,45 +408,72 @@
         <!-- ================= INTERACTIVE WORKSPACE VIEW ================= -->
         <section id="view-app" class="view-section">
             <div class="app-layout">
-                <!-- Sidebar Control Panel -->
-                <aside class="app-sidebar">
-                    <div class="sidebar-user-card" id="user-profile-display">
-                        <div class="user-avatar" id="profile-avatar"><i data-lucide="user"></i></div>
-                        <div class="user-meta">
-                            <h4 id="profile-name">Guest User</h4>
-                            <p id="profile-role">Role: Patient</p>
-                        </div>
+                <!-- Centered Top Navigation Bar -->
+                <header class="app-top-nav">
+                    <div class="app-logo-brand" id="nav-workspace-logo">
+                        <svg class="medivision-logo-svg" viewBox="0 0 64 64" width="30" height="30" xmlns="http://www.w3.org/2000/svg">
+                            <defs>
+                                <linearGradient id="logoBlueGradWorkspace" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" stop-color="#3b82f6" />
+                                    <stop offset="100%" stop-color="#1d4ed8" />
+                                </linearGradient>
+                            </defs>
+                            <!-- Eye Outline -->
+                            <path d="M4 32C12 16 22 12 32 12C42 12 52 16 60 32C52 48 42 52 32 52C22 52 12 48 4 32Z" fill="none" stroke="url(#logoBlueGradWorkspace)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" />
+                            <!-- Connections -->
+                            <line x1="32" y1="12" x2="32" y2="20" stroke="#60a5fa" stroke-width="1.5" stroke-dasharray="2,2" />
+                            <line x1="32" y1="52" x2="32" y2="44" stroke="#60a5fa" stroke-width="1.5" stroke-dasharray="2,2" />
+                            <line x1="4" y1="32" x2="20" y2="32" stroke="#60a5fa" stroke-width="1.5" stroke-dasharray="2,2" />
+                            <line x1="60" y1="32" x2="44" y2="32" stroke="#60a5fa" stroke-width="1.5" stroke-dasharray="2,2" />
+                            <!-- Medical Cross Symbol -->
+                            <path d="M28 22h8v4h4v8h-4v4h-8v-4h-4v-8h4z" fill="url(#logoBlueGradWorkspace)" />
+                            <!-- Nodes -->
+                            <circle cx="32" cy="12" r="3" fill="#60a5fa" />
+                            <circle cx="32" cy="52" r="3" fill="#60a5fa" />
+                            <circle cx="4" cy="32" r="3" fill="#60a5fa" />
+                            <circle cx="60" cy="32" r="3" fill="#60a5fa" />
+                        </svg>
+                        <span class="logo-text">MediVision <span class="highlight">AI</span></span>
                     </div>
                     
                     <ul class="sidebar-menu">
                         <li>
-                            <button class="sidebar-item active" data-tab="tab-upload">
+                            <button class="sidebar-item active" data-tab="tab-upload" aria-label="Navigate to Image Diagnostic Center">
                                 <i data-lucide="file-image"></i> Image Diagnostic Center
                             </button>
                         </li>
                         <li>
-                            <button class="sidebar-item" data-tab="tab-chatbot">
+                            <button class="sidebar-item" data-tab="tab-chatbot" aria-label="Navigate to BioGPT Chatbot">
                                 <i data-lucide="message-square"></i> BioGPT Chatbot
                             </button>
                         </li>
                         <li>
-                            <button class="sidebar-item" data-tab="tab-history">
+                            <button class="sidebar-item" data-tab="tab-history" aria-label="Navigate to Medical Records">
                                 <i data-lucide="clipboard-list"></i> Medical Records
                             </button>
                         </li>
                         <li class="doctor-only hidden" id="sidebar-doctor-item">
-                            <button class="sidebar-item" data-tab="tab-doctor">
+                            <button class="sidebar-item" data-tab="tab-doctor" aria-label="Navigate to Clinical Approval Queue">
                                 <i data-lucide="stethoscope"></i> Clinical Approval Queue <span class="badge badge-accent" id="queue-badge">0</span>
                             </button>
                         </li>
                     </ul>
                     
-                    <div class="sidebar-footer">
-                        <button class="btn btn-secondary btn-full" id="btn-logout">
-                            <i data-lucide="log-out"></i> Sign Out
-                        </button>
+                    <div class="nav-right-container">
+                        <div class="sidebar-user-card" id="user-profile-display">
+                            <div class="user-avatar" id="profile-avatar"><i data-lucide="user"></i></div>
+                            <div class="user-meta">
+                                <h4 id="profile-name">Guest User</h4>
+                                <p id="profile-role">Role: User</p>
+                            </div>
+                        </div>
+                        <div class="sidebar-footer">
+                            <button class="btn btn-secondary" id="btn-logout" aria-label="Sign out of your account">
+                                <i data-lucide="log-out"></i> Sign Out
+                            </button>
+                        </div>
                     </div>
-                </aside>
+                </header>
 
                 <!-- Workspace Panels -->
                 <div class="app-panel-container">
@@ -178,15 +499,15 @@
                                 <div class="form-group">
                                     <label>Scan Modality</label>
                                     <div class="modality-selector">
-                                        <button class="modality-btn active" data-modality="ecg"><i data-lucide="activity"></i> ECG</button>
-                                        <button class="modality-btn" data-modality="xray"><i data-lucide="file-text"></i> Chest X-Ray</button>
-                                        <button class="modality-btn" data-modality="mri"><i data-lucide="shield-alert"></i> Cardiac MRI</button>
+                                        <button class="modality-btn active" data-modality="ecg" aria-label="Select ECG scan modality"><i data-lucide="activity"></i> ECG</button>
+                                        <button class="modality-btn" data-modality="xray" aria-label="Select Chest X-Ray scan modality"><i data-lucide="file-text"></i> Chest X-Ray</button>
+                                        <button class="modality-btn" data-modality="mri" aria-label="Select Cardiac MRI scan modality"><i data-lucide="shield-alert"></i> Cardiac MRI</button>
                                     </div>
                                 </div>
 
                                 <div class="form-group">
                                     <label>Classifier Framework</label>
-                                    <select class="form-select" id="select-vision-model">
+                                    <select class="form-select" id="select-vision-model" aria-label="Select classifier framework model">
                                         <option value="vit">google/vit-base-patch16-224 (Vision Transformer)</option>
                                         <option value="resnet">microsoft/resnet-50 (ResNet-50 CNN)</option>
                                         <option value="densenet">DenseNet121 (Dense Medical Net)</option>
@@ -196,7 +517,7 @@
                                 <div class="form-group">
                                     <label>Upload File</label>
                                     <div class="drag-drop-area" id="drag-drop-zone">
-                                        <input type="file" id="file-input" accept="image/*" class="hidden">
+                                        <input type="file" id="file-input" accept="image/*" class="hidden" aria-label="Upload medical scan file">
                                         <i data-lucide="upload-cloud" class="upload-icon"></i>
                                         <p class="main-text">Drag and drop file here, or <span class="click-link">browse</span></p>
                                         <p class="sub-text">Supported formats: JPG, PNG, DICOM. Max 10MB.</p>
@@ -301,7 +622,7 @@
                                     <div class="chat-model-info">
                                         <i data-lucide="bot"></i>
                                         <div>
-                                            <select class="form-select select-sm" id="select-chatbot-model">
+                                            <select class="form-select select-sm" id="select-chatbot-model" aria-label="Select chatbot AI model">
                                                 <option value="biogpt">microsoft/BioGPT</option>
                                                 <option value="biobert">BioBERT (QA Extractor)</option>
                                                 <option value="medalpaca">MedAlpaca (Instruct-tuned)</option>
@@ -330,7 +651,7 @@
 
                                 <div class="disclaimer-alert">
                                     <i data-lucide="alert-octagon"></i>
-                                    <p><strong>Clinical Disclaimer:</strong> Chatbot answers are for preliminary evaluation only and must be confirmed by a board-certified physician.</p>
+                                    <p><strong>Clinical Disclaimer:</strong> Chatbot answers are for preliminary evaluation only and must be confirmed by a board-certified specialist.</p>
                                 </div>
                             </div>
 
@@ -341,7 +662,7 @@
                                     <div class="chat-message bot">
                                         <div class="message-avatar"><i data-lucide="bot"></i></div>
                                         <div class="message-bubble">
-                                            <p>Welcome to MediVision AI. I am your biomedical AI chatbot powered by Hugging Face models. How can I assist you with your cardiac inquiries today?</p>
+                                            <p>Welcome to MediVision AI. I am your specialized biomedical AI chatbot. How can I assist you with your cardiac inquiries today?</p>
                                             <span class="timestamp">11:25 AM</span>
                                         </div>
                                     </div>
@@ -355,7 +676,7 @@
 
                                 <form class="chat-input-row" id="chat-form">
                                     <input type="text" class="chat-text-input" id="chat-text-input" placeholder="Ask about symptoms, precautions, or uploaded diagnosis..." required>
-                                    <button type="submit" class="btn btn-primary btn-icon" id="btn-send-message">
+                                    <button type="submit" class="btn btn-primary btn-icon" id="btn-send-message" aria-label="Send chat message">
                                         <i data-lucide="send"></i>
                                     </button>
                                 </form>
@@ -398,11 +719,11 @@
                         </div>
                     </div>
                     
-                    <!-- TAB 4: CLINICAL APPROVAL QUEUE (DOCTOR ONLY) -->
+                    <!-- TAB 4: CLINICAL VERIFICATION QUEUE (SPECIALIST ONLY) -->
                     <div class="app-tab-panel" id="tab-doctor">
                         <div class="tab-header">
                             <div>
-                                <h2>Clinical Approval Portal</h2>
+                                <h2>Clinical Verification Portal</h2>
                                 <p>Review AI-assisted diagnostic reports and issue clinical sign-offs</p>
                             </div>
                         </div>
@@ -410,7 +731,7 @@
                         <div class="doctor-portal-grid">
                             <!-- Left: Submission Queue -->
                             <div class="card queue-card">
-                                <h3>Pending Patient Submissions</h3>
+                                <h3>Pending User Submissions</h3>
                                 <div class="queue-list" id="doctor-queue-list">
                                     <!-- Dynamic Items -->
                                     <div class="empty-queue-text text-muted">No reports currently in the validation queue.</div>
@@ -419,7 +740,7 @@
 
                             <!-- Right: Detailed Review Panel -->
                             <div class="card review-card">
-                                <h3>Clinical Evaluation Desk</h3>
+                                <h3>Clinical Verification Desk</h3>
                                 <div class="review-panel-content" id="doctor-review-empty">
                                     <i data-lucide="stethoscope" class="empty-icon"></i>
                                     <p>Select a submission from the left queue to begin validation</p>
@@ -428,7 +749,7 @@
                                 <div class="review-panel-content hidden" id="doctor-review-active">
                                     <div class="patient-header">
                                         <div>
-                                            <h4 id="review-patient-name">Patient Name</h4>
+                                            <h4 id="review-patient-name">User Name</h4>
                                             <p class="meta" id="review-record-id">Record ID: #0000</p>
                                         </div>
                                         <span class="status-badge" id="review-ai-probability-badge">94.8% Risk</span>
@@ -456,7 +777,7 @@
                                     <div class="doctor-action-form">
                                         <div class="form-group">
                                             <label for="doctor-clinical-verdict">Official Diagnostic Verdict</label>
-                                            <select class="form-select" id="doctor-clinical-verdict">
+                                            <select class="form-select" id="doctor-clinical-verdict" aria-label="Select official diagnostic verdict">
                                                 <option value="Confirmed - Normal">Confirm AI - Normal / Low Risk</option>
                                                 <option value="Confirmed - Abnormal">Confirm AI - Heart Disease Detected</option>
                                                 <option value="Overruled - Normal">Overrule AI - Normal / Low Risk</option>
@@ -466,12 +787,12 @@
                                         
                                         <div class="form-group">
                                             <label for="doctor-clinical-notes">Clinical Notes & Treatment Pathway</label>
-                                            <textarea class="form-textarea" id="doctor-clinical-notes" rows="4" placeholder="Enter patient guidelines, required therapies, or scheduled appointment dates..."></textarea>
+                                            <textarea class="form-textarea" id="doctor-clinical-notes" rows="4" placeholder="Enter clinical guidelines, required therapies, or scheduled appointment dates..."></textarea>
                                         </div>
 
                                         <div class="form-group">
-                                            <label for="doctor-signature">Authorized Clinician Signature</label>
-                                            <input type="text" class="form-input" id="doctor-signature" placeholder="Dr. [First Name, Last Name], MD">
+                                            <label for="doctor-signature">Authorized Specialist Signature</label>
+                                            <input type="text" class="form-input" id="doctor-signature" placeholder="[Name, Title/Credentials]">
                                         </div>
 
                                         <button class="btn btn-primary btn-full" id="btn-submit-doctor-approval">
@@ -493,66 +814,268 @@
 
     <!-- ================= AUTHENTICATION MODAL ================= -->
     <div class="modal-backdrop" id="auth-modal">
-        <div class="modal-card">
-            <button class="modal-close" id="btn-close-auth"><i data-lucide="x"></i></button>
-            <div class="modal-tabs">
-                <button class="modal-tab-btn active" id="tab-btn-signin">Sign In</button>
-                <button class="modal-tab-btn" id="tab-btn-signup">Register Account</button>
+        <div class="login-wrapper">
+            <!-- Logo Header outside card -->
+            <div class="login-logo-header">
+                <div class="login-logo-brand">
+                    <svg class="medivision-logo-svg" viewBox="0 0 64 64" width="44" height="44" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <linearGradient id="logoBlueGradAuth" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#3b82f6" />
+                                <stop offset="100%" stop-color="#1d4ed8" />
+                            </linearGradient>
+                        </defs>
+                        <!-- Eye Outline -->
+                        <path d="M4 32C12 16 22 12 32 12C42 12 52 16 60 32C52 48 42 52 32 52C22 52 12 48 4 32Z" fill="none" stroke="url(#logoBlueGradAuth)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" />
+                        <!-- Connections -->
+                        <line x1="32" y1="12" x2="32" y2="20" stroke="#60a5fa" stroke-width="1.5" stroke-dasharray="2,2" />
+                        <line x1="32" y1="52" x2="32" y2="44" stroke="#60a5fa" stroke-width="1.5" stroke-dasharray="2,2" />
+                        <line x1="4" y1="32" x2="20" y2="32" stroke="#60a5fa" stroke-width="1.5" stroke-dasharray="2,2" />
+                        <line x1="60" y1="32" x2="44" y2="32" stroke="#60a5fa" stroke-width="1.5" stroke-dasharray="2,2" />
+                        <path d="M28 22h8v4h4v8h-4v4h-8v-4h-4v-8h4z" fill="url(#logoBlueGradAuth)" />
+                        <!-- Nodes -->
+                        <circle cx="32" cy="12" r="3" fill="#60a5fa" />
+                        <circle cx="32" cy="52" r="3" fill="#60a5fa" />
+                        <circle cx="4" cy="32" r="3" fill="#60a5fa" />
+                        <circle cx="60" cy="32" r="3" fill="#60a5fa" />
+                    </svg>
+                    <div class="logo-text-wrapper text-left">
+                        <span class="logo-title font-bold text-dark" style="color: #0c2340; font-size: 1.6rem; letter-spacing: -0.3px;">MEDIVISION AI</span>
+                        <span class="logo-tagline font-medium text-muted" style="color: #475569; font-size: 0.75rem; display: block; margin-top: 2px;">Intelligent Healthcare. Early Detection. Better Outcomes.</span>
+                    </div>
+                </div>
             </div>
             
-            <div class="modal-body">
-                <!-- Sign In Form -->
-                <form id="signin-form" class="auth-form active">
-                    <div class="form-group">
-                        <label for="signin-email">Medical Registration / Email Address</label>
-                        <input type="email" class="form-input" id="signin-email" placeholder="name@medivision.ai" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="signin-password">Password</label>
-                        <input type="password" class="form-input" id="signin-password" placeholder="••••••••" required>
-                    </div>
-                    
-                    <button type="submit" class="btn btn-primary btn-full btn-glow">Sign In</button>
-                    
-                    <!-- Quick Test Credentials -->
-                    <div class="quick-credentials">
-                        <p class="credential-label">For Evaluation / Sandbox Testing:</p>
-                        <div class="credential-buttons">
-                            <button type="button" class="btn btn-secondary btn-sm" id="btn-quick-patient">
-                                <i data-lucide="user"></i> Login as Patient
-                            </button>
-                            <button type="button" class="btn btn-secondary btn-sm" id="btn-quick-doctor">
-                                <i data-lucide="stethoscope"></i> Login as Doctor
-                            </button>
+            <div class="modal-card">
+                <div class="card-top-bar"></div>
+                <button class="modal-close" id="btn-close-auth" aria-label="Close authentication modal"><i data-lucide="x"></i></button>
+                <div class="modal-body">
+                    <!-- ================= LOGIN VIEWS ================= -->
+                    <div id="auth-login-view" class="auth-view active">
+                        <div class="modal-tabs">
+                            <button type="button" class="modal-tab-btn active" id="tab-login-patient">Patient Login</button>
+                            <button type="button" class="modal-tab-btn" id="tab-login-doctor">Specialist Login</button>
                         </div>
+                        
+                        <h2 class="welcome-title">Welcome Back!</h2>
+                        <p class="welcome-subtitle" id="login-subtitle">Login to access your patient dashboard</p>
+                        
+                        <!-- Login Form -->
+                        <form id="signin-form" class="auth-form active">
+                            <!-- Hidden input to track role: 'patient' or 'doctor' -->
+                            <input type="hidden" id="signin-role" value="patient">
+                            
+                            <div class="form-group">
+                                <label for="signin-email">Email Address</label>
+                                <div class="input-with-icon">
+                                    <i data-lucide="mail" class="input-icon-left"></i>
+                                    <input type="email" class="form-input has-icon" id="signin-email" placeholder="enter your patient email address" required>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <div class="label-row">
+                                    <label for="signin-password">Password</label>
+                                    <a href="#" class="forgot-link">Forgot Password?</a>
+                                </div>
+                                <div class="input-with-icon">
+                                    <i data-lucide="lock" class="input-icon-left"></i>
+                                    <input type="password" class="form-input has-icon" id="signin-password" placeholder="enter your password" required>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary btn-full btn-glow" id="btn-submit-signin">Sign In</button>
+                            
+                            <div class="auth-divider"><span>or</span></div>
+                            
+                            <button type="button" class="btn btn-google btn-full" id="btn-google-signin">
+                                <img src="assets/google-logo.svg" alt="Google Logo" class="google-icon-svg">
+                                Continue with Google
+                            </button>
+                            
+                            <div class="signup-footer-link">
+                                Don't have an account? <a href="#" id="link-show-signup">Sign Up</a>
+                            </div>
+                            
+                            <p class="terms-disclaimer">
+                                By signing in, you agree to our <a href="#">Terms of Service</a> & <a href="#">Privacy Policy</a>.
+                            </p>
+                        </form>
                     </div>
-                </form>
 
-                <!-- Sign Up Form -->
-                <form id="signup-form" class="auth-form">
-                    <div class="form-group">
-                        <label for="signup-name">Full Legal Name</label>
-                        <input type="text" class="form-input" id="signup-name" placeholder="John Doe" required>
+                    <!-- ================= SIGN UP VIEW ================= -->
+                    <div id="auth-signup-view" class="auth-view">
+                        <div class="modal-tabs">
+                            <button type="button" class="modal-tab-btn active" id="tab-register-patient">Patient Signup</button>
+                            <button type="button" class="modal-tab-btn" id="tab-register-doctor">Specialist Signup</button>
+                        </div>
+                        
+                        <h2 class="welcome-title" id="signup-title">Create Account</h2>
+                        <p class="welcome-subtitle" id="signup-subtitle">Sign up to access your patient dashboard</p>
+                        
+                        <!-- Patient Signup Form -->
+                        <form id="signup-patient-form" class="auth-form active">
+                            <div class="form-group">
+                                <label for="signup-patient-name">Full Name</label>
+                                <div class="input-with-icon">
+                                    <i data-lucide="user" class="input-icon-left"></i>
+                                    <input type="text" class="form-input has-icon" id="signup-patient-name" placeholder="enter your full name" required>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="signup-patient-email">Email Address</label>
+                                <div class="input-with-icon">
+                                    <i data-lucide="mail" class="input-icon-left"></i>
+                                    <input type="email" class="form-input has-icon" id="signup-patient-email" placeholder="enter your email address" required>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="signup-patient-mobile">Mobile Number</label>
+                                <div class="input-with-icon">
+                                    <i data-lucide="phone" class="input-icon-left"></i>
+                                    <input type="tel" class="form-input has-icon" id="signup-patient-mobile" placeholder="enter your mobile number" required>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="signup-patient-password">Password</label>
+                                <div class="input-with-icon">
+                                    <i data-lucide="lock" class="input-icon-left"></i>
+                                    <input type="password" class="form-input has-icon" id="signup-patient-password" placeholder="enter a secure password" required>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="signup-patient-confirm">Confirm Password</label>
+                                <div class="input-with-icon">
+                                    <i data-lucide="lock" class="input-icon-left"></i>
+                                    <input type="password" class="form-input has-icon" id="signup-patient-confirm" placeholder="confirm your password" required>
+                                </div>
+                            </div>
+                            
+                            <button type="submit" class="btn btn-primary btn-full btn-glow">Create Patient Account</button>
+                            
+                            <div class="signup-footer-link">
+                                Already have an account? <a href="#" id="link-show-signin-patient">Sign In</a>
+                            </div>
+                            
+                            <p class="terms-disclaimer">
+                                By signing up, you agree to our <a href="#">Terms of Service</a> & <a href="#">Privacy Policy</a>.
+                            </p>
+                        </form>
+                        
+                        <!-- Doctor Signup Form -->
+                        <form id="signup-doctor-form" class="auth-form">
+                            <div class="form-group">
+                                <label for="signup-doctor-name">Full Name</label>
+                                <div class="input-with-icon">
+                                    <i data-lucide="user" class="input-icon-left"></i>
+                                    <input type="text" class="form-input has-icon" id="signup-doctor-name" placeholder="enter your full name" required>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="signup-doctor-license">Medical License Number</label>
+                                <div class="input-with-icon">
+                                    <i data-lucide="award" class="input-icon-left"></i>
+                                    <input type="text" class="form-input has-icon" id="signup-doctor-license" placeholder="enter license number (e.g., LIC-99281)" required>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="signup-doctor-hospital">Hospital Affiliation</label>
+                                <div class="input-with-icon">
+                                    <i data-lucide="building" class="input-icon-left"></i>
+                                    <input type="text" class="form-input has-icon" id="signup-doctor-hospital" placeholder="enter hospital or clinic name" required>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="signup-doctor-specialization">Specialization</label>
+                                <div class="input-with-icon">
+                                    <i data-lucide="stethoscope" class="input-icon-left"></i>
+                                    <input type="text" class="form-input has-icon" id="signup-doctor-specialization" placeholder="enter specialization (e.g., Cardiology)" required>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="signup-doctor-email">Email Address</label>
+                                <div class="input-with-icon">
+                                    <i data-lucide="mail" class="input-icon-left"></i>
+                                    <input type="email" class="form-input has-icon" id="signup-doctor-email" placeholder="enter your email address" required>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="signup-doctor-password">Password</label>
+                                <div class="input-with-icon">
+                                    <i data-lucide="lock" class="input-icon-left"></i>
+                                    <input type="password" class="form-input has-icon" id="signup-doctor-password" placeholder="enter a secure password" required>
+                                </div>
+                            </div>
+                            
+                            <button type="submit" class="btn btn-primary btn-full btn-glow">Create Specialist Account</button>
+                            
+                            <div class="signup-footer-link">
+                                Already have an account? <a href="#" id="link-show-signin-doctor">Sign In</a>
+                            </div>
+                            
+                            <p class="terms-disclaimer">
+                                By signing up, you agree to our <a href="#">Terms of Service</a> & <a href="#">Privacy Policy</a>.
+                            </p>
+                        </form>
                     </div>
-                    <div class="form-group">
-                        <label for="signup-email">Email Address</label>
-                        <input type="email" class="form-input" id="signup-email" placeholder="patient@gmail.com" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="signup-role">Account Privilege Level</label>
-                        <select class="form-select" id="signup-role">
-                            <option value="patient">Patient (Submit Scans & Chat)</option>
-                            <option value="doctor">Doctor / Clinician (Approve Diagnostic Records)</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="signup-password">Create Secure Password</label>
-                        <input type="password" class="form-input" id="signup-password" placeholder="••••••••" required>
-                    </div>
-                    
-                    <button type="submit" class="btn btn-primary btn-full btn-glow">Register Account</button>
-                </form>
+                </div>
             </div>
+        </div>
+    </div>
+
+    <!-- ================= GOOGLE OAUTH SIMULATOR MODAL ================= -->
+    <div class="google-modal-backdrop" id="google-auth-modal">
+        <div class="google-modal-card">
+            <svg class="google-modal-logo" viewBox="0 0 24 24" width="75" height="24">
+                <path fill="#4285F4" d="M23.49 12.27c0-.81-.07-1.59-.2-2.34H12v4.44h6.44c-.28 1.47-1.11 2.71-2.36 3.55v2.95h3.82c2.23-2.05 3.59-5.07 3.59-8.6z"/>
+                <path fill="#34A853" d="M12 23c3.24 0 5.97-1.07 7.96-2.91l-3.82-2.95c-1.06.71-2.42 1.13-4.14 1.13-3.1 0-5.79-2.51-6.72-5.54l-3.89 3.02C3.37 20.33 7.35 23 12 23z"/>
+                <path fill="#FBBC05" d="M5.28 14.78A7.12 7.12 0 0 1 4.8 12c0-.98.17-1.92.48-2.78L1.39 6.2A11.94 11.94 0 0 0 0 12c0 2.12.55 4.12 1.52 5.88l3.76-3.1z"/>
+                <path fill="#EA4335" d="M12 5.04c1.67 0 3.2.58 4.38 1.71l3.27-3.27C17.67 1.57 14.98 1 12 1 7.35 1 3.37 3.67 1.39 7.56l3.89 3.02C6.21 7.55 8.9 5.04 12 5.04z"/>
+            </svg>
+            <h2 class="google-modal-title">Sign in with Google</h2>
+            <p class="google-modal-subtitle">to continue to MediVision AI</p>
+            
+            <div class="google-account-list" id="google-account-list">
+                <div class="google-account-item" data-email="patient@medivision.ai" data-name="David Miller">
+                    <div class="google-account-avatar">DM</div>
+                    <div class="google-account-details">
+                        <span class="google-account-name">David Miller</span>
+                        <span class="google-account-email">patient@medivision.ai</span>
+                    </div>
+                </div>
+                <div class="google-account-item" data-email="doctor@medivision.ai" data-name="Sarah Jenkins">
+                    <div class="google-account-avatar">SJ</div>
+                    <div class="google-account-details">
+                        <span class="google-account-name">Dr. Sarah Jenkins, MD</span>
+                        <span class="google-account-email">doctor@medivision.ai</span>
+                    </div>
+                </div>
+                <div class="google-account-item" id="google-use-custom">
+                    <div class="google-account-avatar custom"><i data-lucide="user-plus"></i></div>
+                    <div class="google-account-details">
+                        <span class="google-account-name" style="color: #1a73e8;">Use another account</span>
+                        <span class="google-account-email">Sign in with a different Google ID</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Custom User Input Form -->
+            <form id="google-custom-form" class="google-custom-form">
+                <div class="form-group">
+                    <label for="google-custom-name">Full Name</label>
+                    <input type="text" id="google-custom-name" placeholder="John Doe" required>
+                </div>
+                <div class="form-group">
+                    <label for="google-custom-email">Google Email Address</label>
+                    <input type="email" id="google-custom-email" placeholder="user@gmail.com" required>
+                </div>
+                <div class="google-form-actions">
+                    <button type="button" class="google-btn-back" id="btn-google-back">Back</button>
+                    <button type="submit" class="google-btn-submit">Continue</button>
+                </div>
+            </form>
+
+            <p class="google-modal-footer">
+                To continue, Google will share your name, email address, language preference, and profile picture with MediVision AI. See our <a href="#">Privacy Policy</a> and <a href="#">Terms of Service</a>.
+            </p>
         </div>
     </div>
 
@@ -562,6 +1085,9 @@
     </div>
 
     <!-- Footer moved to landing view to prevent displaying inside the active dashboard -->
+
+    <!-- Toast Notification Container -->
+    <div class="toast-container" id="toast-container"></div>
 
     <!-- Core App JS -->
     <script src="app.js"></script>

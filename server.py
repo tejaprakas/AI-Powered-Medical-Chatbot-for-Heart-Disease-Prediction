@@ -2,7 +2,12 @@ import os
 import uuid
 import time
 import sqlite3
-from fastapi import FastAPI, File, UploadFile, Form, HTTPException, Depends
+from contextlib import asynccontextmanager
+from datetime import datetime, timedelta
+
+import bcrypt
+from jose import jwt, JWTError
+from fastapi import FastAPI, File, UploadFile, Form, HTTPException, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
@@ -18,7 +23,49 @@ except ImportError:
     from PIL import Image, ImageStat
     TORCH_AVAILABLE = False
 
-app = FastAPI(title="MediVision AI Backend Server")
+# --- JWT Configuration ---
+SECRET_KEY = 'medivision-secret-key-2026'
+ALGORITHM = 'HS256'
+
+def create_access_token(data: dict) -> str:
+    """Create a JWT token with 24-hour expiry."""
+    to_encode = data.copy()
+    expire = datetime.utcnow() + timedelta(hours=24)
+    to_encode.update({"exp": expire})
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+def get_current_user(request: Request) -> dict:
+    """Extract and validate JWT from the Authorization: Bearer <token> header."""
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid authentication token.")
+    token = auth_header.split(" ", 1)[1]
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        return payload
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired authentication token.")
+
+# --- Model Warm-Loading via Lifespan ---
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Load the ResNet18 model once at startup and store in app.state."""
+    if TORCH_AVAILABLE:
+        try:
+            model = models.resnet18(pretrained=True)
+            model.eval()
+            app.state.model = model
+            print("PyTorch: ResNet18 model loaded and cached at startup.")
+        except Exception as e:
+            print(f"PyTorch: Failed to load model at startup: {e}")
+            app.state.model = None
+    else:
+        app.state.model = None
+    yield
+    # Cleanup on shutdown (release model reference)
+    app.state.model = None
+
+app = FastAPI(title="MediVision AI Backend Server", lifespan=lifespan)
 
 # Setup CORS to allow browser calls from local web ports
 app.add_middleware(
@@ -35,7 +82,7 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 # --- 1. SQL Database Initialization & Seeding ---
 def get_db():
-    conn = sqlite3.connect(DATABASE_FILE)
+    conn = sqlite3.connect(DATABASE_FILE, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     try:
         yield conn
@@ -43,17 +90,28 @@ def get_db():
         conn.close()
 
 def init_db():
-    conn = sqlite3.connect(DATABASE_FILE)
+    conn = sqlite3.connect(DATABASE_FILE, check_same_thread=False)
     cursor = conn.cursor()
     
-    # Create Users SQL Table
+    # Clean drop if schema is out of date (operational check)
+    try:
+        cursor.execute("SELECT mobile FROM users LIMIT 1")
+    except sqlite3.OperationalError:
+        cursor.execute("DROP TABLE IF EXISTS users")
+        conn.commit()
+
+    # Create Users SQL Table with extended attributes
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS users (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         email TEXT UNIQUE NOT NULL,
         password TEXT NOT NULL,
-        role TEXT NOT NULL
+        role TEXT NOT NULL,
+        mobile TEXT,
+        license_number TEXT,
+        hospital TEXT,
+        specialization TEXT
     )
     """)
     
@@ -81,12 +139,13 @@ def init_db():
     # Seed default user accounts if table is empty
     cursor.execute("SELECT COUNT(*) FROM users")
     if cursor.fetchone()[0] == 0:
-        cursor.execute("INSERT INTO users VALUES (?, ?, ?, ?, ?)", 
-                       ("usr-1", "David Miller", "patient@medivision.ai", "password", "patient"))
-        cursor.execute("INSERT INTO users VALUES (?, ?, ?, ?, ?)", 
-                       ("usr-2", "Dr. Sarah Jenkins, MD", "doctor@medivision.ai", "password", "doctor"))
+        hashed_pw = bcrypt.hashpw("password".encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        cursor.execute("INSERT INTO users VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", 
+                       ("usr-1", "David Miller", "patient@medivision.ai", hashed_pw, "patient", "1234567890", None, None, None))
+        cursor.execute("INSERT INTO users VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", 
+                       ("usr-2", "Dr. Sarah Jenkins, MD", "doctor@medivision.ai", hashed_pw, "doctor", None, "LIC-99281", "MediVision General Hospital", "Cardiology"))
         conn.commit()
-        print("SQL: Seeded default sandbox accounts.")
+        print("SQL: Seeded default sandbox accounts with hashed passwords.")
         
     # Seed default records if table is empty
     cursor.execute("SELECT COUNT(*) FROM records")
@@ -116,11 +175,20 @@ class LoginRequest(BaseModel):
     email: str
     password: str
 
+class GoogleLoginRequest(BaseModel):
+    email: str
+    name: str
+    token: str
+
 class RegisterRequest(BaseModel):
     name: str
     email: str
     password: str
     role: str
+    mobile: Optional[str] = None
+    license_number: Optional[str] = None
+    hospital: Optional[str] = None
+    specialization: Optional[str] = None
 
 class ReviewRequest(BaseModel):
     verdict: str
@@ -137,7 +205,7 @@ CHATBOT_KNOWLEDGE = {
         "abnormal": {
             "whatItShows": "• Wider-than-average QRS complex spikes on the rhythm strip.<br>• Ectopic beats firing prematurely before the normal SA node cycle.<br>• Short periods of tachycardic bursts in Lead II.",
             "whatItMeans": "The heart's electrical system is experiencing localized conductivity instability. Beats are initiated in the ventricles instead of the sinoatrial node, causing cardiac cycles to fall out of rhythmic synchrony.",
-            "alternativeRecommendations": "• <strong>Electrolyte Balance:</strong> Consume magnesium and potassium-dense foods (e.g., avocados, cooked spinach, Swiss chard) to support electrical membrane stability.<br>• <strong>Vagal Activation:</strong> Practice slow diaphragmatic breathing (inhale 5 seconds, exhale 7 seconds) and use cool face compresses to stimulate the vagus nerve, helping to lower heart rate and reduce ectopic events.<br>• <strong>CoQ10 Integration:</strong> Supplement with 100-200mg of Coenzyme Q10 daily (subject to physician sign-off) to improve cellular ATP bioenergetics within the cardiac tissue.<br>• <strong>Mitigate Sympathetic Tone:</strong> Strictly eliminate synthetic energy drinks, excess coffee, and sleep-depriving habits. Shift to calming teas like chamomile to reduce adrenaline spikes.",
+            "alternativeRecommendations": "• <strong>Electrolyte Balance:</strong> Consume magnesium and potassium-dense foods (e.g., avocados, cooked spinach, Swiss chard) to support electrical membrane stability.<br>• <strong>Vagal Activation:</strong> Practice slow diaphragmatic breathing (inhale 5 seconds, exhale 7 seconds) and use cool face compresses to stimulate the vagus nerve, helping to lower heart rate and reduce ectopic events.<br>• <strong>CoQ10 Integration:</strong> Supplement with 100-200mg of Coenzyme Q10 daily (subject to specialist sign-off) to improve cellular ATP bioenergetics within the cardiac tissue.<br>• <strong>Mitigate Sympathetic Tone:</strong> Strictly eliminate synthetic energy drinks, excess coffee, and sleep-depriving habits. Shift to calming teas like chamomile to reduce adrenaline spikes.",
             "symptoms": "Arrhythmia symptoms commonly include palpitations (a fluttering or racing heart), mild chest discomfort, shortness of breath, lightheadedness, or fatigue during exertion.",
             "precautions": "Avoid stimulants (caffeine, alcohol, nicotine), avoid heavy resistance training until cleared, and monitor your resting pulse daily."
         },
@@ -185,32 +253,65 @@ CHATBOT_KNOWLEDGE = {
 
 # --- 4. API Endpoints ---
 
-# User registration SQL Insert
+# User registration SQL Insert (with bcrypt + JWT)
 @app.post("/api/auth/register")
 def register(req: RegisterRequest, db: sqlite3.Connection = Depends(get_db)):
     cursor = db.cursor()
     try:
         user_id = f"usr-{uuid.uuid4().hex[:8]}"
-        cursor.execute("INSERT INTO users VALUES (?, ?, ?, ?, ?)", 
-                       (user_id, req.name, req.email, req.password, req.role))
+        hashed_pw = bcrypt.hashpw(req.password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        cursor.execute("INSERT INTO users VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", 
+                       (user_id, req.name, req.email, hashed_pw, req.role,
+                        req.mobile, req.license_number, req.hospital, req.specialization))
         db.commit()
-        return {"id": user_id, "name": req.name, "email": req.email, "role": req.role}
+        token = create_access_token({"user_id": user_id, "email": req.email, "role": req.role})
+        return {"token": token, "user": {"name": req.name, "email": req.email, "role": req.role}}
     except sqlite3.IntegrityError:
         raise HTTPException(status_code=400, detail="Email address is already registered.")
 
-# User login SQL Query
+# User login SQL Query (with bcrypt + JWT)
 @app.post("/api/auth/login")
 def login(req: LoginRequest, db: sqlite3.Connection = Depends(get_db)):
     cursor = db.cursor()
-    cursor.execute("SELECT * FROM users WHERE email = ? AND password = ?", (req.email, req.password))
+    cursor.execute("SELECT * FROM users WHERE email = ?", (req.email,))
     row = cursor.fetchone()
     if not row:
         raise HTTPException(status_code=401, detail="Invalid email or password.")
-    return {"id": row["id"], "name": row["name"], "email": row["email"], "role": row["role"]}
+    stored_hash = row["password"]
+    if not bcrypt.checkpw(req.password.encode('utf-8'), stored_hash.encode('utf-8')):
+        raise HTTPException(status_code=401, detail="Invalid email or password.")
+    token = create_access_token({"user_id": row["id"], "email": row["email"], "role": row["role"]})
+    return {"token": token, "user": {"name": row["name"], "email": row["email"], "role": row["role"]}}
 
-# Retrieve Patient/Doctor clinical records from SQL
+# Google OAuth login endpoint (simulated)
+@app.post("/api/auth/google")
+def google_login(req: GoogleLoginRequest, db: sqlite3.Connection = Depends(get_db)):
+    cursor = db.cursor()
+    cursor.execute("SELECT * FROM users WHERE email = ?", (req.email,))
+    row = cursor.fetchone()
+    
+    if not row:
+        user_id = f"usr-{uuid.uuid4().hex[:8]}"
+        role = "doctor" if req.email.lower().endswith("@medivision.ai") else "patient"
+        random_pw = uuid.uuid4().hex
+        hashed_pw = bcrypt.hashpw(random_pw.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        try:
+            cursor.execute("INSERT INTO users VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", 
+                           (user_id, req.name, req.email, hashed_pw, role, None, None, None, None))
+            db.commit()
+            cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,))
+            row = cursor.fetchone()
+        except sqlite3.IntegrityError:
+            raise HTTPException(status_code=400, detail="Failed to register user via Google authentication.")
+            
+    token = create_access_token({"user_id": row["id"], "email": row["email"], "role": row["role"]})
+    return {"token": token, "user": {"name": row["name"], "email": row["email"], "role": row["role"]}}
+
+
+# Retrieve Patient/Doctor clinical records from SQL (JWT-protected)
 @app.get("/api/records")
-def get_records(email: str, role: str, db: sqlite3.Connection = Depends(get_db)):
+def get_records(request: Request, email: str, role: str, db: sqlite3.Connection = Depends(get_db)):
+    get_current_user(request)
     cursor = db.cursor()
     if role == "doctor":
         cursor.execute("SELECT * FROM records ORDER BY date DESC")
@@ -220,9 +321,10 @@ def get_records(email: str, role: str, db: sqlite3.Connection = Depends(get_db))
     rows = cursor.fetchall()
     return [dict(row) for row in rows]
 
-# Real PyTorch prediction engine & SQL record logger
+# Real PyTorch prediction engine & SQL record logger (JWT-protected + file size validation)
 @app.post("/api/predict")
 async def predict(
+    request: Request,
     file: UploadFile = File(...),
     modality: str = Form(...),
     model_used: str = Form(...),
@@ -230,17 +332,24 @@ async def predict(
     patient_email: str = Form(...),
     db: sqlite3.Connection = Depends(get_db)
 ):
+    get_current_user(request)
+    
     # Enforce formatting checks
     if not file.filename.lower().endswith(('.png', '.jpg', '.jpeg')):
         raise HTTPException(status_code=400, detail="Invalid file type. Please upload a standard JPG/PNG scan.")
-        
+    
+    # Read file contents and validate size (10MB limit)
+    contents = await file.read()
+    if len(contents) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File exceeds 10MB limit")
+    
     # Save the file locally to /uploads/
     file_ext = os.path.splitext(file.filename)[1]
     saved_filename = f"scan_{uuid.uuid4().hex[:12]}{file_ext}"
     saved_path = os.path.join(UPLOAD_DIR, saved_filename)
     
     with open(saved_path, "wb") as f:
-        f.write(await file.read())
+        f.write(contents)
         
     # --- Execute Real AI Prediction Logic ---
     prob = 0.0
@@ -257,9 +366,10 @@ async def predict(
             ])
             tensor = preprocess(image).unsqueeze(0)
             
-            # Load a real pre-trained ResNet18 model to calculate features
-            model = models.resnet18(pretrained=True)
-            model.eval()
+            # Use warm-loaded model from app.state (loaded once at startup)
+            model = request.app.state.model
+            if model is None:
+                raise RuntimeError("Model not available")
             
             with torch.no_grad():
                 outputs = model(tensor)
@@ -327,9 +437,10 @@ async def predict(
         "status": "Pending Review"
     }
 
-# Update record review signatures in SQL
+# Update record review signatures in SQL (JWT-protected)
 @app.post("/api/records/{record_id}/review")
-def review_record(record_id: str, req: ReviewRequest, db: sqlite3.Connection = Depends(get_db)):
+def review_record(record_id: str, req: ReviewRequest, request: Request, db: sqlite3.Connection = Depends(get_db)):
+    get_current_user(request)
     cursor = db.cursor()
     cursor.execute("SELECT * FROM records WHERE id = ?", (record_id,))
     if not cursor.fetchone():
@@ -381,9 +492,9 @@ def chat(req: ChatRequest, db: sqlite3.Connection = Depends(get_db)):
     elif "hello" in message_clean or "hi" in message_clean or "hey" in message_clean:
         response = "Hello! I am here to assist with your medical diagnostic questions. You can ask me to explain your scan symptoms, suggest cardiovascular precautions, or clarify how the transformer network calculates disease probabilities."
     elif "doctor" in message_clean or "physician" in message_clean or "appointment" in message_clean:
-        response = "It is highly recommended to share these AI diagnostic records with a doctor. If you are signed in as a patient, you can check the 'Medical Records' tab to see when Dr. Jenkins clinical sign-off is completed."
+        response = "It is highly recommended to share these AI diagnostic records with a medical specialist. If you are logged in, you can check the 'Medical Records' tab to see when the clinical sign-off is completed."
     else:
-        response = f"As your medical chatbot assistant, I've noted your question: \"{req.message}\". Regarding your cardiovascular parameters, always ensure you keep a log of symptoms, maintain low sodium intake, and seek a clinician's evaluation. Let me know if you would like precautions, scan findings, or symptoms details for your active diagnostic case."
+        response = f"As your medical chatbot assistant, I've noted your question: \"{req.message}\". Regarding your cardiovascular parameters, always ensure you keep a log of symptoms, maintain low sodium intake, and seek a specialist's evaluation. Let me know if you would like precautions, scan findings, or symptoms details for your active diagnostic case."
         
     return {"response": response}
 

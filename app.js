@@ -3,7 +3,12 @@
    ========================================================================== */
 
 // --- 1. API Configuration & State Management ---
-const API_BASE = window.location.origin.startsWith('file') ? 'http://localhost:8000' : '';
+// When deploying to production (e.g. Netlify), set this to your deployed backend URL (e.g., 'https://your-backend.onrender.com')
+const PRODUCTION_BACKEND_URL = ''; 
+
+const API_BASE = window.location.origin.includes(':8000') 
+    ? '' 
+    : (PRODUCTION_BACKEND_URL || 'http://127.0.0.1:8000');
 
 let records = [];
 let currentUser = JSON.parse(localStorage.getItem('medivision_user')) || null;
@@ -24,7 +29,11 @@ const appState = {
 async function fetchRecords() {
     if (!currentUser) return [];
     try {
-        const res = await fetch(`${API_BASE}/api/records?email=${encodeURIComponent(currentUser.email)}&role=${encodeURIComponent(currentUser.role)}`);
+        const res = await fetch(`${API_BASE}/api/records?email=${encodeURIComponent(currentUser.email)}&role=${encodeURIComponent(currentUser.role)}`, {
+            headers: {
+                'Authorization': `Bearer ${currentUser.token || ''}`
+            }
+        });
         if (!res.ok) throw new Error("Failed to fetch records");
         records = await res.json();
         return records;
@@ -39,9 +48,10 @@ const elements = {
     // Navigation
     navLogo: document.getElementById('nav-logo'),
     navLinks: document.querySelectorAll('.nav-links a'),
-    btnSignInTrigger: document.getElementById('btn-login-trigger'),
-    btnLaunchApp: document.getElementById('btn-launch-app'),
-    btnLaunchAppAction: document.querySelector('.btn-launch-app-action'),
+    btnPatientLoginTrigger: document.getElementById('btn-patient-login-trigger'),
+    btnDoctorLoginTrigger: document.getElementById('btn-doctor-login-trigger'),
+    btnDashboardTrigger: document.getElementById('btn-dashboard-trigger'),
+    btnSignoutTrigger: document.getElementById('btn-signout-trigger'),
     
     // View Sections
     viewLanding: document.getElementById('view-landing'),
@@ -58,12 +68,12 @@ const elements = {
     // Auth Modal
     authModal: document.getElementById('auth-modal'),
     btnCloseAuth: document.getElementById('btn-close-auth'),
-    tabBtnSignIn: document.getElementById('tab-btn-signin'),
-    tabBtnSignUp: document.getElementById('tab-btn-signup'),
     signinForm: document.getElementById('signin-form'),
-    signupForm: document.getElementById('signup-form'),
-    btnQuickPatient: document.getElementById('btn-quick-patient'),
-    btnQuickDoctor: document.getElementById('btn-quick-doctor'),
+    btnGoogleSignIn: document.getElementById('btn-google-signin'),
+    googleAuthModal: document.getElementById('google-auth-modal'),
+    googleAccountList: document.getElementById('google-account-list'),
+    googleCustomForm: document.getElementById('google-custom-form'),
+    btnGoogleBack: document.getElementById('btn-google-back'),
     
     // Diagnostic Center
     modalityButtons: document.querySelectorAll('.modality-btn'),
@@ -135,27 +145,35 @@ const elements = {
 
 // --- 3. App View & Navigation Controllers ---
 function updateNavigationState() {
-    if (currentUser) {
-        elements.btnSignInTrigger.textContent = 'App Dashboard';
-        elements.btnSignInTrigger.classList.remove('btn-secondary');
-        elements.btnSignInTrigger.classList.add('btn-primary');
+    const isLogged = !!currentUser;
+    if (isLogged) {
+        if (elements.btnPatientLoginTrigger) elements.btnPatientLoginTrigger.classList.add('hidden');
+        if (elements.btnDoctorLoginTrigger) elements.btnDoctorLoginTrigger.classList.add('hidden');
+        if (elements.btnDashboardTrigger) elements.btnDashboardTrigger.classList.remove('hidden');
+        if (elements.btnSignoutTrigger) elements.btnSignoutTrigger.classList.remove('hidden');
     } else {
-        elements.btnSignInTrigger.textContent = 'Sign In';
-        elements.btnSignInTrigger.classList.remove('btn-primary');
-        elements.btnSignInTrigger.classList.add('btn-secondary');
+        if (elements.btnPatientLoginTrigger) elements.btnPatientLoginTrigger.classList.remove('hidden');
+        if (elements.btnDoctorLoginTrigger) elements.btnDoctorLoginTrigger.classList.remove('hidden');
+        if (elements.btnDashboardTrigger) elements.btnDashboardTrigger.classList.add('hidden');
+        if (elements.btnSignoutTrigger) elements.btnSignoutTrigger.classList.add('hidden');
     }
 }
 
 function switchView(viewName) {
     appState.currentView = viewName;
     
+    const mainNavbar = document.querySelector('.navbar');
+    
     if (viewName === 'landing') {
         elements.viewLanding.classList.add('active');
         elements.viewApp.classList.remove('active');
+        if (mainNavbar) mainNavbar.classList.remove('hidden');
         
         // Update header active links
         document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
-        elements.navLinks[0].classList.add('active');
+        if (elements.navLinks && elements.navLinks.length > 0) {
+            elements.navLinks[0].classList.add('active');
+        }
     } else if (viewName === 'app') {
         // Enforce Login to open workspace
         if (!currentUser) {
@@ -164,10 +182,15 @@ function switchView(viewName) {
         }
         elements.viewLanding.classList.remove('active');
         elements.viewApp.classList.add('active');
+        if (mainNavbar) mainNavbar.classList.add('hidden');
         
         // Setup user sidebar details
         elements.profileName.textContent = currentUser.name;
-        elements.profileRole.textContent = `Role: ${currentUser.role.charAt(0).toUpperCase() + currentUser.role.slice(1)}`;
+        const roleLabels = {
+            patient: 'User',
+            doctor: 'Specialist'
+        };
+        elements.profileRole.textContent = `Role: ${roleLabels[currentUser.role] || currentUser.role}`;
         
         if (currentUser.role === 'doctor') {
             elements.sidebarDoctorItem.classList.remove('hidden');
@@ -238,30 +261,54 @@ document.querySelectorAll('.model-subcard').forEach(card => {
 });
 
 // --- 4. User Authentication Controllers ---
-function openAuthModal(tab = 'signin') {
+function openAuthModal(defaultRole = 'patient') {
     elements.authModal.classList.add('active');
-    toggleAuthTabs(tab);
+    
+    // Reset modal view states to default (Login)
+    const authLoginView = document.getElementById('auth-login-view');
+    const authSignupView = document.getElementById('auth-signup-view');
+    if (authLoginView && authSignupView) {
+        authLoginView.classList.add('active');
+        authSignupView.classList.remove('active');
+    }
+    
+    const tabPatient = document.getElementById('tab-login-patient');
+    const tabDoctor = document.getElementById('tab-login-doctor');
+    const signinRoleInput = document.getElementById('signin-role');
+    const loginSubtitle = document.getElementById('login-subtitle');
+    const signinEmailInput = document.getElementById('signin-email');
+    
+    if (tabPatient && tabDoctor) {
+        if (defaultRole === 'doctor') {
+            tabDoctor.classList.add('active');
+            tabPatient.classList.remove('active');
+            if (signinRoleInput) signinRoleInput.value = 'doctor';
+            if (loginSubtitle) loginSubtitle.textContent = 'Login to access your specialist dashboard';
+            if (signinEmailInput) {
+                signinEmailInput.placeholder = 'enter your specialist email address';
+                signinEmailInput.value = '';
+            }
+        } else {
+            tabPatient.classList.add('active');
+            tabDoctor.classList.remove('active');
+            if (signinRoleInput) signinRoleInput.value = 'patient';
+            if (loginSubtitle) loginSubtitle.textContent = 'Login to access your patient dashboard';
+            if (signinEmailInput) {
+                signinEmailInput.placeholder = 'enter your patient email address';
+                signinEmailInput.value = '';
+            }
+        }
+    }
+    
+    const signinPasswordInput = document.getElementById('signin-password');
+    if (signinPasswordInput) signinPasswordInput.value = '';
 }
 
 function closeAuthModal() {
     elements.authModal.classList.remove('active');
 }
 
-function toggleAuthTabs(tab) {
-    if (tab === 'signin') {
-        elements.tabBtnSignIn.classList.add('active');
-        elements.tabBtnSignUp.classList.remove('active');
-        elements.signinForm.classList.add('active');
-        elements.signupForm.classList.remove('active');
-    } else {
-        elements.tabBtnSignIn.classList.remove('active');
-        elements.tabBtnSignUp.classList.add('active');
-        elements.signinForm.classList.remove('active');
-        elements.signupForm.classList.add('active');
-    }
-}
-
-function handleLogin(email, role = 'patient', customName = '') {
+function handleLogin(email, role = 'patient', customName = '', token = '') {
     let name = customName;
     if (!name) {
         name = role === 'doctor' ? 'Dr. Sarah Jenkins, MD' : 'David Miller';
@@ -270,13 +317,21 @@ function handleLogin(email, role = 'patient', customName = '') {
     currentUser = {
         email: email,
         role: role,
-        name: name
+        name: name,
+        token: token
     };
     
     localStorage.setItem('medivision_user', JSON.stringify(currentUser));
     updateNavigationState();
     closeAuthModal();
     switchView('app');
+}
+
+function handleLogout() {
+    currentUser = null;
+    localStorage.removeItem('medivision_user');
+    updateNavigationState();
+    switchView('landing');
 }
 
 // --- 5. Diagnostic scanning & AI predictions ---
@@ -288,16 +343,16 @@ const CHATBOT_RESPONSES = {
             intro: "I see your ECG diagnostic results show a high probability of anomalies (94.8% probability) pointing to a potential Arrhythmia or Premature Ventricular Contractions (PVCs). I can explain these findings or provide lifestyle precautions.",
             whatItShows: "• Wider-than-average QRS complex spikes on the rhythm strip.<br>• Ectopic beats firing prematurely before the normal SA node cycle.<br>• Short periods of tachycardic bursts in Lead II.",
             whatItMeans: "The heart's electrical system is experiencing localized conductivity instability. Beats are initiated in the ventricles instead of the sinoatrial node, causing cardiac cycles to fall out of rhythmic synchrony.",
-            alternativeRecommendations: "• <strong>Electrolyte Balance:</strong> Consume magnesium and potassium-dense foods (e.g., avocados, cooked spinach, Swiss chard) to support electrical membrane stability.<br>• <strong>Vagal Activation:</strong> Practice slow diaphragmatic breathing (inhale 5 seconds, exhale 7 seconds) and use cool face compresses to stimulate the vagus nerve, helping to lower heart rate and reduce ectopic events.<br>• <strong>CoQ10 Integration:</strong> Supplement with 100-200mg of Coenzyme Q10 daily (subject to physician sign-off) to improve cellular ATP bioenergetics within the cardiac tissue.<br>• <strong>Mitigate Sympathetic Tone:</strong> Strictly eliminate synthetic energy drinks, excess coffee, and sleep-depriving habits. Shift to calming teas like chamomile to reduce adrenaline spikes.",
+            alternativeRecommendations: "• <strong>Electrolyte Balance:</strong> Consume magnesium and potassium-dense foods (e.g., avocados, cooked spinach, Swiss chard) to support electrical membrane stability.<br>• <strong>Vagal Activation:</strong> Practice slow diaphragmatic breathing (inhale 5 seconds, exhale 7 seconds) and use cool face compresses to stimulate the vagus nerve, helping to lower heart rate and reduce ectopic events.<br>• <strong>CoQ10 Integration:</strong> Supplement with 100-200mg of Coenzyme Q10 daily (subject to specialist sign-off) to improve cellular ATP bioenergetics within the cardiac tissue.<br>• <strong>Mitigate Sympathetic Tone:</strong> Strictly eliminate synthetic energy drinks, excess coffee, and sleep-depriving habits. Shift to calming teas like chamomile to reduce adrenaline spikes.",
             symptoms: "Arrhythmia symptoms commonly include palpitations (a fluttering or racing heart), mild chest discomfort, shortness of breath, lightheadedness, or fatigue during exertion.",
-            precautions: "Given the high probability (94.8%) of ventricular anomalies on your ECG, please take these precautions: \n1. **Avoid Stimulants:** Strictly limit caffeine, alcohol, and nicotine.\n2. **Avoid Intrusive Workouts:** Refrain from heavy weight lifting or running until cleared by a doctor.\n3. **Monitor Vitals:** Check your resting pulse daily.\n4. **Clinician Referral:** This result has been routed to our clinical desk. We advise booking a diagnostic consultation."
+            precautions: "Given the high probability (94.8%) of ventricular anomalies on your ECG, please take these precautions: \n1. **Avoid Stimulants:** Strictly limit caffeine, alcohol, and nicotine.\n2. **Avoid Intrusive Workouts:** Refrain from heavy weight lifting or running until cleared by a specialist.\n3. **Monitor Vitals:** Check your resting pulse daily.\n4. **Specialist Referral:** This result has been routed to our clinical desk. We advise booking a diagnostic consultation."
         },
         normal: {
             intro: "Your ECG scan shows a 7.2% probability of anomaly, indicating a healthy normal sinus rhythm. Your heart's electrical pathways are firing correctly.",
             whatItShows: "• A regular heart rate between 60-100 BPM.<br>• Symmetrical P waves preceding every standard QRS complex.<br>• Constant and regular PR intervals.",
             whatItMeans: "Your heart is contracting via a healthy sinus rhythm, demonstrating optimal electrical conductivity without signs of ectopic signals.",
             alternativeRecommendations: "• <strong>Cardio Preservation:</strong> Perform 30 minutes of low-intensity aerobic conditioning (like walking, cycling) 5 days a week to support stroke volume and lower resting pressure.<br>• <strong>Vessel Elasticity:</strong> Include healthy monounsaturated fats (extra virgin olive oil, walnuts) to keep arteries highly flexible.<br>• <strong>Hydration Maintenance:</strong> Stay hydrated with clean water and coconut water to prevent transient electrolyte fluctuation.",
-            symptoms: "A normal sinus rhythm means you shouldn't feel irregular fluttering. If you still experience chest pains or palpitations, please report them directly to a physician, as non-electrical conditions could be present.",
+            symptoms: "A normal sinus rhythm means you shouldn't feel irregular fluttering. If you still experience chest pains or palpitations, please report them directly to a medical specialist, as non-electrical conditions could be present.",
             precautions: "Keep up the excellent work! To support your cardiovascular health: exercise moderately 150 mins per week, maintain a diet low in trans fats, and limit high sodium inputs."
         }
     },
@@ -308,7 +363,7 @@ const CHATBOT_RESPONSES = {
             whatItMeans: "The heart muscle is working under chronically elevated workload, leading to hypertrophy (enlargement) of the ventricles, often caused by untreated high blood pressure or valve issues.",
             alternativeRecommendations: "• <strong>Strict Sodium Limitation:</strong> Limit sodium to under 1,500 mg daily to decrease fluid retention, vascular volume, and diastolic pressure.<br>• <strong>Natural Vasodilators:</strong> Incorporate organic beetroot juice (rich in dietary nitrates) or garlic extract to naturally relax blood vessels and reduce heart workload.<br>• <strong>Anti-Gravity Sleeping:</strong> Elevate the head of your bed by 15-30 degrees using a wedge pillow to prevent nocturnal fluid accumulation in the chest, easing breathing.<br>• <strong>Hawthorn Berry Cardiotonic:</strong> Research traditional cardiotonic herbs like Hawthorn Berry to naturally support vascular blood flow and coronary circulation.",
             symptoms: "An enlarged heart (cardiomegaly) may cause fluid build-up in the lungs, leading to shortness of breath (especially when lying flat), cough, leg swelling (edema), and fatigue.",
-            precautions: "For suspected Cardiomegaly:\n1. **Restrict Fluid & Sodium:** High salt intake increases blood volume, putting extra strain on the heart muscle.\n2. **Avoid Heavy Exertion:** Avoid activities that trigger immediate shortness of breath.\n3. **Sleep Elevated:** Use extra pillows to help breathing at night.\n4. **Consultation:** Please review these X-ray margins with a clinician for an echocardiogram referral."
+            precautions: "For suspected Cardiomegaly:\n1. **Restrict Fluid & Sodium:** High salt intake increases blood volume, putting extra strain on the heart muscle.\n2. **Avoid Heavy Exertion:** Avoid activities that trigger immediate shortness of breath.\n3. **Sleep Elevated:** Use extra pillows to help breathing at night.\n4. **Consultation:** Please review these X-ray margins with a specialist for an echocardiogram referral."
         },
         normal: {
             intro: "Your Chest X-Ray indicates a low anomaly rate (11.5%). The size of your cardiac silhouette is normal, and your lung fields are clear.",
@@ -326,7 +381,7 @@ const CHATBOT_RESPONSES = {
             whatItMeans: "A region of the heart muscle suffered oxygen starvation in the past, leading to localized tissue necrosis (scarring) and reducing the overall pumping efficiency of the left ventricle.",
             alternativeRecommendations: "• <strong>High-Dose Omega-3s:</strong> Supplement with 2-3g of high-quality fish oil (EPA/DHA) daily to alleviate chronic cardiovascular inflammation and protect cell membrane structures.<br>• <strong>Mediterranean Lifestyle:</strong> Rely on a diet rich in raw nuts, legumes, fresh vegetables, and fatty fish to lower secondary event rates.<br>• <strong>Structured Cardiovascular Rehab:</strong> Join a local cardiac rehabilitation program to complete supervised, heart-rate-limited conditioning to slowly rebuild stroke volume.<br>• <strong>Antioxidant Protection:</strong> Take grape seed extract or consume polyphenols to prevent oxidative stress in recovering heart tissues.",
             symptoms: "Myocardial ischemia or infarction risks are marked by pressure/squeezing in the center of the chest, pain spreading to the left arm or jaw, cold sweats, and nausea.",
-            precautions: "For suspected myocardial injury:\n1. **Zero Stress:** Rest immediately; avoid elevating your heart rate.\n2. **Emergency Preparedness:** If you experience active chest pressure lasting over 5 minutes, seek emergency medical services immediately.\n3. **Follow-Up:** A cardiac MRI finding of localized akinetic walls requires a cardiologist's assessment for coronary artery clearance."
+            precautions: "For suspected myocardial injury:\n1. **Zero Stress:** Rest immediately; avoid elevating your heart rate.\n2. **Emergency Preparedness:** If you experience active chest pressure lasting over 5 minutes, seek emergency medical services immediately.\n3. **Follow-Up:** A cardiac MRI finding of localized akinetic walls requires a specialist's assessment for coronary artery clearance."
         },
         normal: {
             intro: "Your Cardiac MRI confirms normal ventricular operations with a low 5.6% anomaly rating. Left ventricle wall thickness and ejection fraction are optimal.",
@@ -397,6 +452,9 @@ async function triggerDiagnosticScan(file, isSample = false) {
     try {
         const res = await fetch(`${API_BASE}/api/predict`, {
             method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${currentUser.token || ''}`
+            },
             body: formData
         });
         if (!res.ok) {
@@ -731,13 +789,13 @@ window.triggerReportDownload = function(recordId) {
         
     let docVerdictSection = record.doctorVerdict
         ? `<div class="print-notes-section">
-                <h4>Clinical Physician Validation</h4>
+                <h4>Clinical Specialist Validation</h4>
                 <p><strong>Verdict:</strong> ${record.doctorVerdict}</p>
                 <p><strong>Clinical Notes:</strong> ${record.doctorNotes || 'No notes added.'}</p>
            </div>`
         : `<div class="print-notes-section">
-                <h4>Clinical Physician Validation</h4>
-                <p><em>This report was automatically compiled by the MediVision AI neural diagnostic pipeline. Official physician notes and physical clinician verification signature are pending.</em></p>
+                <h4>Clinical Specialist Validation</h4>
+                <p><em>This report was automatically compiled by the MediVision AI neural diagnostic pipeline. Official specialist notes and physical clinician verification signature are pending.</em></p>
            </div>`;
 
     printContainer.innerHTML = `
@@ -756,8 +814,8 @@ window.triggerReportDownload = function(recordId) {
             <h3 class="print-title">Electrocardiogram & Imaging Diagnostic Evaluation</h3>
             
             <div class="print-meta-grid">
-                <div class="print-meta-item"><strong>Patient Name:</strong> ${record.patientName}</div>
-                <div class="print-meta-item"><strong>Patient Email:</strong> ${record.patientEmail}</div>
+                <div class="print-meta-item"><strong>User Name:</strong> ${record.patientName}</div>
+                <div class="print-meta-item"><strong>User Email:</strong> ${record.patientEmail}</div>
                 <div class="print-meta-item"><strong>Record File ID:</strong> ${record.id}</div>
                 <div class="print-meta-item"><strong>Scan Modality:</strong> ${record.modality}</div>
                 <div class="print-meta-item"><strong>Inference Neural Framework:</strong> ${record.modelUsed}</div>
@@ -767,7 +825,7 @@ window.triggerReportDownload = function(recordId) {
             <div class="print-diagnostics-section">
                 <div class="print-image-panel">
                     <img src="${API_BASE}/${record.scanUrl}" alt="Scan File">
-                    <span class="print-image-label">Fig 1. Multi-modal patient scan input</span>
+                    <span class="print-image-label">Fig 1. Multi-modal scan input</span>
                 </div>
                 <div class="print-summary-panel">
                     <h4>Diagnostic Prediction Summary</h4>
@@ -792,11 +850,11 @@ window.triggerReportDownload = function(recordId) {
             <div class="print-signatures">
                 <div class="signature-slot">
                     <div class="signature-line"></div>
-                    <div class="signature-label">Patient Acknowledgement</div>
+                    <div class="signature-label">User Acknowledgement</div>
                 </div>
                 <div class="signature-slot">
                     <div class="signature-line">${record.doctorSigned ? `<span style="font-family: 'Outfit'; font-style: italic; font-weight: 500;">${record.doctorSigned}</span>` : ''}</div>
-                    <div class="signature-label">Authorized Clinician Signature</div>
+                    <div class="signature-label">Authorized Specialist Signature</div>
                 </div>
             </div>
         </div>
@@ -807,6 +865,57 @@ window.triggerReportDownload = function(recordId) {
         window.print();
     }, 250);
 };
+
+// --- 8.5. Landing Page Animations ---
+function animateCounters() {
+    const counters = document.querySelectorAll('.stat-number');
+    counters.forEach(counter => {
+        const target = +counter.getAttribute('data-target');
+        if (isNaN(target)) return;
+        const duration = 1200; // count duration in ms
+        const stepTime = Math.max(Math.floor(duration / target), 15);
+        let current = 0;
+        
+        counter.textContent = "0";
+        
+        const timer = setInterval(() => {
+            if (target > 30) {
+                current += Math.ceil(target / 30);
+            } else {
+                current += 1;
+            }
+            
+            if (current >= target) {
+                counter.textContent = target;
+                clearInterval(timer);
+            } else {
+                counter.textContent = current;
+            }
+        }, stepTime);
+    });
+}
+
+function initCountersObserver() {
+    const statsBar = document.querySelector('.stats-bar');
+    if (!statsBar) {
+        animateCounters();
+        return;
+    }
+    
+    if ('IntersectionObserver' in window) {
+        const observer = new IntersectionObserver((entries, obs) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    animateCounters();
+                    obs.disconnect();
+                }
+            });
+        }, { threshold: 0.1 });
+        observer.observe(statsBar);
+    } else {
+        animateCounters();
+    }
+}
 
 // --- 9. Event Listeners Registry ---
 function registerEventListeners() {
@@ -833,79 +942,125 @@ function registerEventListeners() {
     });
 
     // Auth trigger buttons
-    elements.btnSignInTrigger.addEventListener('click', () => {
-        if (currentUser) {
-            switchView('app');
-        } else {
-            openAuthModal('signin');
-        }
+    if (elements.btnPatientLoginTrigger) {
+        elements.btnPatientLoginTrigger.addEventListener('click', () => openAuthModal('patient'));
+    }
+    if (elements.btnDoctorLoginTrigger) {
+        elements.btnDoctorLoginTrigger.addEventListener('click', () => openAuthModal('doctor'));
+    }
+    if (elements.btnDashboardTrigger) {
+        elements.btnDashboardTrigger.addEventListener('click', () => switchView('app'));
+    }
+    if (elements.btnSignoutTrigger) {
+        elements.btnSignoutTrigger.addEventListener('click', handleLogout);
+    }
+    
+    // Pricing page shortcuts
+    document.querySelectorAll('.btn-login-p-shortcut').forEach(btn => {
+        btn.addEventListener('click', () => openAuthModal('patient'));
     });
-
-    elements.btnLaunchApp.addEventListener('click', () => {
-        if (currentUser) {
-            switchView('app');
-        } else {
-            openAuthModal('signin');
-        }
-    });
-
-    elements.btnLaunchAppAction.addEventListener('click', () => {
-        if (currentUser) {
-            switchView('app');
-        } else {
-            openAuthModal('signin');
-        }
+    document.querySelectorAll('.btn-login-d-shortcut').forEach(btn => {
+        btn.addEventListener('click', () => openAuthModal('doctor'));
     });
 
     // Auth modal controls
     elements.btnCloseAuth.addEventListener('click', closeAuthModal);
-    elements.tabBtnSignIn.addEventListener('click', () => toggleAuthTabs('signin'));
-    elements.tabBtnSignUp.addEventListener('click', () => toggleAuthTabs('signup'));
-    
-    // Quick login triggers
-    elements.btnQuickPatient.addEventListener('click', async () => {
-        try {
-            const res = await fetch(`${API_BASE}/api/auth/login`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: 'patient@medivision.ai', password: 'password' })
-            });
-            if (res.ok) {
-                const userData = await res.json();
-                handleLogin(userData.email, userData.role, userData.name);
-            } else {
-                handleLogin('patient@medivision.ai', 'patient', 'David Miller');
-            }
-        } catch (err) {
-            handleLogin('patient@medivision.ai', 'patient', 'David Miller');
-        }
-    });
-    
-    elements.btnQuickDoctor.addEventListener('click', async () => {
-        try {
-            const res = await fetch(`${API_BASE}/api/auth/login`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: 'doctor@medivision.ai', password: 'password' })
-            });
-            if (res.ok) {
-                const userData = await res.json();
-                handleLogin(userData.email, userData.role, userData.name);
-            } else {
-                handleLogin('doctor@medivision.ai', 'doctor', 'Dr. Sarah Jenkins, MD');
-            }
-        } catch (err) {
-            handleLogin('doctor@medivision.ai', 'doctor', 'Dr. Sarah Jenkins, MD');
-        }
-    });
     
     elements.btnLogout.addEventListener('click', handleLogout);
     
+    // Switch between Patient and Doctor tabs in Signin modal
+    const tabPatient = document.getElementById('tab-login-patient');
+    const tabDoctor = document.getElementById('tab-login-doctor');
+    const signinRoleInput = document.getElementById('signin-role');
+    const loginSubtitle = document.getElementById('login-subtitle');
+    const signinEmailInput = document.getElementById('signin-email');
+
+    if (tabPatient && tabDoctor) {
+        tabPatient.addEventListener('click', () => {
+            tabPatient.classList.add('active');
+            tabDoctor.classList.remove('active');
+            signinRoleInput.value = 'patient';
+            loginSubtitle.textContent = 'Login to access your patient dashboard';
+            signinEmailInput.placeholder = 'enter your patient email address';
+        });
+
+        tabDoctor.addEventListener('click', () => {
+            tabDoctor.classList.add('active');
+            tabPatient.classList.remove('active');
+            signinRoleInput.value = 'doctor';
+            loginSubtitle.textContent = 'Login to access your specialist dashboard';
+            signinEmailInput.placeholder = 'enter your specialist email address';
+        });
+    }
+
+    // Switch between Login and Signup views inside modal
+    const linkShowSignup = document.getElementById('link-show-signup');
+    const authLoginView = document.getElementById('auth-login-view');
+    const authSignupView = document.getElementById('auth-signup-view');
+
+    // Switch between Patient and Doctor tabs in register view
+    const tabRegPatient = document.getElementById('tab-register-patient');
+    const tabRegDoctor = document.getElementById('tab-register-doctor');
+    const signupPatientForm = document.getElementById('signup-patient-form');
+    const signupDoctorForm = document.getElementById('signup-doctor-form');
+    const signupTitle = document.getElementById('signup-title');
+    const signupSubtitle = document.getElementById('signup-subtitle');
+
+    if (tabRegPatient && tabRegDoctor && signupPatientForm && signupDoctorForm) {
+        tabRegPatient.addEventListener('click', () => {
+            tabRegPatient.classList.add('active');
+            tabRegDoctor.classList.remove('active');
+            signupPatientForm.classList.add('active');
+            signupDoctorForm.classList.remove('active');
+            if (signupTitle) signupTitle.textContent = 'Create Patient Account';
+            if (signupSubtitle) signupSubtitle.textContent = 'Sign up to access your patient dashboard';
+        });
+
+        tabRegDoctor.addEventListener('click', () => {
+            tabRegDoctor.classList.add('active');
+            tabRegPatient.classList.remove('active');
+            signupDoctorForm.classList.add('active');
+            signupPatientForm.classList.remove('active');
+            if (signupTitle) signupTitle.textContent = 'Create Specialist Account';
+            if (signupSubtitle) signupSubtitle.textContent = 'Sign up to access your specialist dashboard';
+        });
+    }
+
+    if (linkShowSignup && authLoginView && authSignupView) {
+        linkShowSignup.addEventListener('click', (e) => {
+            e.preventDefault();
+            authLoginView.classList.remove('active');
+            authSignupView.classList.add('active');
+            if (tabRegPatient) tabRegPatient.click();
+        });
+    }
+
+    // Sign In back-links inside register view
+    const linkShowSigninPatient = document.getElementById('link-show-signin-patient');
+    const linkShowSigninDoctor = document.getElementById('link-show-signin-doctor');
+    if (linkShowSigninPatient && authLoginView && authSignupView) {
+        linkShowSigninPatient.addEventListener('click', (e) => {
+            e.preventDefault();
+            authSignupView.classList.remove('active');
+            authLoginView.classList.add('active');
+            openAuthModal('patient');
+        });
+    }
+    if (linkShowSigninDoctor && authLoginView && authSignupView) {
+        linkShowSigninDoctor.addEventListener('click', (e) => {
+            e.preventDefault();
+            authSignupView.classList.remove('active');
+            authLoginView.classList.add('active');
+            openAuthModal('doctor');
+        });
+    }
+
     // Sign In Submission
     elements.signinForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const email = document.getElementById('signin-email').value;
         const password = document.getElementById('signin-password').value;
+        const roleSelected = signinRoleInput.value;
         
         try {
             const res = await fetch(`${API_BASE}/api/auth/login`, {
@@ -919,39 +1074,178 @@ function registerEventListeners() {
                 return;
             }
             const userData = await res.json();
-            handleLogin(userData.email, userData.role, userData.name);
+            
+            // Separation validation: Patient vs Doctor
+            if (roleSelected === 'doctor' && userData.user.role !== 'doctor') {
+                alert("This account is registered as a Patient. Please use the Patient Login tab.");
+                return;
+            }
+            if (roleSelected === 'patient' && userData.user.role === 'doctor') {
+                alert("This account is registered as a Specialist. Please use the Specialist Login tab.");
+                return;
+            }
+            
+            handleLogin(userData.user.email, userData.user.role, userData.user.name, userData.token);
         } catch (err) {
             console.error(err);
             alert('Server connection error. Please make sure the backend is running.');
         }
     });
 
-    // Sign Up Submission
-    elements.signupForm.addEventListener('submit', async (e) => {
+    // Patient Sign Up Submission
+    if (signupPatientForm) {
+        signupPatientForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('signup-patient-name').value.trim();
+            const email = document.getElementById('signup-patient-email').value.trim();
+            const mobile = document.getElementById('signup-patient-mobile').value.trim();
+            const password = document.getElementById('signup-patient-password').value;
+            const confirmPassword = document.getElementById('signup-patient-confirm').value;
+            
+            if (password !== confirmPassword) {
+                alert("Passwords do not match.");
+                return;
+            }
+            
+            try {
+                const res = await fetch(`${API_BASE}/api/auth/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        name, 
+                        email, 
+                        password, 
+                        role: 'patient',
+                        mobile
+                    })
+                });
+                if (!res.ok) {
+                    const errData = await res.json();
+                    alert(errData.detail || 'Registration failed.');
+                    return;
+                }
+                const userData = await res.json();
+                alert("Patient registration successful!");
+                
+                handleLogin(userData.user.email, userData.user.role, userData.user.name, userData.token);
+            } catch (err) {
+                console.error(err);
+                alert('Server connection error. Please make sure the backend is running.');
+            }
+        });
+    }
+
+    // Doctor/Specialist Sign Up Submission
+    if (signupDoctorForm) {
+        signupDoctorForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('signup-doctor-name').value.trim();
+            const email = document.getElementById('signup-doctor-email').value.trim();
+            const license_number = document.getElementById('signup-doctor-license').value.trim();
+            const hospital = document.getElementById('signup-doctor-hospital').value.trim();
+            const specialization = document.getElementById('signup-doctor-specialization').value.trim();
+            const password = document.getElementById('signup-doctor-password').value;
+            
+            try {
+                const res = await fetch(`${API_BASE}/api/auth/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        name, 
+                        email, 
+                        password, 
+                        role: 'doctor',
+                        license_number,
+                        hospital,
+                        specialization
+                    })
+                });
+                if (!res.ok) {
+                    const errData = await res.json();
+                    alert(errData.detail || 'Registration failed.');
+                    return;
+                }
+                const userData = await res.json();
+                alert("Specialist registration successful!");
+                
+                handleLogin(userData.user.email, userData.user.role, userData.user.name, userData.token);
+            } catch (err) {
+                console.error(err);
+                alert('Server connection error. Please make sure the backend is running.');
+            }
+        });
+    }
+
+    // Google Sign In button click triggers the chooser popup
+    elements.btnGoogleSignIn.addEventListener('click', () => {
+        closeAuthModal(); // Close the standard login modal
+        elements.googleAuthModal.classList.add('active');
+        // Reset form states
+        elements.googleAccountList.style.display = 'block';
+        elements.googleCustomForm.classList.remove('active');
+        document.getElementById('google-custom-name').value = '';
+        document.getElementById('google-custom-email').value = '';
+    });
+
+    // Close Google Auth Modal when clicking outside the card
+    elements.googleAuthModal.addEventListener('click', (e) => {
+        if (e.target === elements.googleAuthModal) {
+            elements.googleAuthModal.classList.remove('active');
+        }
+    });
+
+    // Handle account selection from the list
+    elements.googleAccountList.querySelectorAll('.google-account-item').forEach(item => {
+        item.addEventListener('click', async () => {
+            if (item.id === 'google-use-custom') {
+                // Show custom input form
+                elements.googleAccountList.style.display = 'none';
+                elements.googleCustomForm.classList.add('active');
+                return;
+            }
+            
+            const email = item.getAttribute('data-email');
+            const name = item.getAttribute('data-name');
+            
+            await executeGoogleLogin(email, name);
+        });
+    });
+
+    // Google Custom Form back button
+    elements.btnGoogleBack.addEventListener('click', () => {
+        elements.googleCustomForm.classList.remove('active');
+        elements.googleAccountList.style.display = 'block';
+    });
+
+    // Google Custom Form submit
+    elements.googleCustomForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const email = document.getElementById('signup-email').value;
-        const name = document.getElementById('signup-name').value;
-        const role = document.getElementById('signup-role').value;
-        const password = document.getElementById('signup-password').value;
+        const name = document.getElementById('google-custom-name').value.trim();
+        const email = document.getElementById('google-custom-email').value.trim();
         
+        await executeGoogleLogin(email, name);
+    });
+
+    async function executeGoogleLogin(email, name) {
         try {
-            const res = await fetch(`${API_BASE}/api/auth/register`, {
+            const res = await fetch(`${API_BASE}/api/auth/google`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, email, role, password })
+                body: JSON.stringify({ email, name, token: 'mock_google_oauth_token' })
             });
             if (!res.ok) {
                 const errData = await res.json();
-                alert(errData.detail || 'Registration failed.');
+                alert(errData.detail || 'Google authentication failed.');
                 return;
             }
             const userData = await res.json();
-            handleLogin(userData.email, userData.role, userData.name);
+            elements.googleAuthModal.classList.remove('active');
+            handleLogin(userData.user.email, userData.user.role, userData.user.name, userData.token);
         } catch (err) {
             console.error(err);
             alert('Server connection error. Please make sure the backend is running.');
         }
-    });
+    }
 
     // Sidebar navigation tabs
     elements.sidebarItems.forEach(btn => {
@@ -1104,7 +1398,10 @@ function registerEventListeners() {
         try {
             const res = await fetch(`${API_BASE}/api/records/${recordId}/review`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${currentUser.token || ''}`
+                },
                 body: JSON.stringify({ verdict, notes: note, signature })
             });
             if (!res.ok) {
@@ -1134,4 +1431,7 @@ window.addEventListener('DOMContentLoaded', () => {
     
     // Switch to initial view
     switchView('landing');
+    
+    // Trigger landing page stats counter animation
+    initCountersObserver();
 });
