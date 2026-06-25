@@ -13,14 +13,13 @@ from pydantic import BaseModel
 from typing import Optional
 
 # Check for PyTorch availability
+from PIL import Image, ImageStat
 try:
     import torch
     import torchvision.transforms as transforms
     import torchvision.models as models
-    from PIL import Image
     TORCH_AVAILABLE = True
 except ImportError:
-    from PIL import Image, ImageStat
     TORCH_AVAILABLE = False
 
 # --- JWT Configuration ---
