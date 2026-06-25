@@ -75,97 +75,274 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# --- Database Selection (SQLite vs MongoDB) ---
+MONGO_URL = os.environ.get("MONGO_URL")
+DB_NAME = os.environ.get("DB_NAME", "medivision_db")
+
+MONGO_AVAILABLE = False
+mongo_db = None
+
+if MONGO_URL:
+    try:
+        from pymongo import MongoClient
+        mongo_client = MongoClient(MONGO_URL, serverSelectionTimeoutMS=2000)
+        # Check connection
+        mongo_client.server_info()
+        mongo_db = mongo_client[DB_NAME]
+        MONGO_AVAILABLE = True
+        print("Database: Connected to MongoDB successfully!")
+    except Exception as e:
+        print(f"Database: Failed to connect to MongoDB, falling back to SQLite. Error: {e}")
+        MONGO_AVAILABLE = False
+
 DATABASE_FILE = "medivision.db"
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-# --- 1. SQL Database Initialization & Seeding ---
+class UnifiedDB:
+    def __init__(self, sqlite_conn=None):
+        self.sqlite = sqlite_conn
+        self.mongo = mongo_db if MONGO_AVAILABLE else None
+        self.is_mongo = MONGO_AVAILABLE
+
+    def get_user_by_email(self, email: str):
+        if self.is_mongo:
+            user = self.mongo.users.find_one({"email": email})
+            if user:
+                user["id"] = user.get("id") or str(user.get("_id"))
+                if "_id" in user:
+                    user["_id"] = str(user["_id"])
+            return user
+        else:
+            cursor = self.sqlite.cursor()
+            cursor.execute("SELECT * FROM users WHERE email = ?", (email,))
+            row = cursor.fetchone()
+            return dict(row) if row else None
+
+    def get_user_by_id(self, user_id: str):
+        if self.is_mongo:
+            user = self.mongo.users.find_one({"id": user_id})
+            if user:
+                user["id"] = user.get("id") or str(user.get("_id"))
+                if "_id" in user:
+                    user["_id"] = str(user["_id"])
+            return user
+        else:
+            cursor = self.sqlite.cursor()
+            cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,))
+            row = cursor.fetchone()
+            return dict(row) if row else None
+
+    def create_user(self, user_id: str, name: str, email: str, password_hash: str, role: str, mobile: str = None, license_number: str = None, hospital: str = None, specialization: str = None):
+        if self.is_mongo:
+            self.mongo.users.insert_one({
+                "id": user_id,
+                "name": name,
+                "email": email,
+                "password": password_hash,
+                "role": role,
+                "mobile": mobile,
+                "license_number": license_number,
+                "hospital": hospital,
+                "specialization": specialization
+            })
+        else:
+            cursor = self.sqlite.cursor()
+            cursor.execute("INSERT INTO users VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", 
+                           (user_id, name, email, password_hash, role, mobile, license_number, hospital, specialization))
+            self.sqlite.commit()
+
+    def get_records(self, email: str = None, role: str = None):
+        if self.is_mongo:
+            if role == "doctor":
+                cursor = self.mongo.records.find().sort("date", -1)
+            else:
+                cursor = self.mongo.records.find({"patientEmail": email}).sort("date", -1)
+            records = list(cursor)
+            for r in records:
+                if "_id" in r:
+                    r["_id"] = str(r["_id"])
+            return records
+        else:
+            cursor = self.sqlite.cursor()
+            if role == "doctor":
+                cursor.execute("SELECT * FROM records ORDER BY date DESC")
+            else:
+                cursor.execute("SELECT * FROM records WHERE patientEmail = ? ORDER BY date DESC", (email,))
+            rows = cursor.fetchall()
+            return [dict(row) for row in rows]
+
+    def get_record_by_id(self, record_id: str):
+        if self.is_mongo:
+            rec = self.mongo.records.find_one({"id": record_id})
+            if rec and "_id" in rec:
+                rec["_id"] = str(rec["_id"])
+            return rec
+        else:
+            cursor = self.sqlite.cursor()
+            cursor.execute("SELECT * FROM records WHERE id = ?", (record_id,))
+            row = cursor.fetchone()
+            return dict(row) if row else None
+
+    def create_record(self, record_id: str, date: str, patient_name: str, patient_email: str, modality: str, model_used: str, probability: str, verdict: str, pathology: str, signatures: str, scan_url: str, status: str, doctor_verdict: str = "", doctor_notes: str = "", doctor_signed: str = ""):
+        if self.is_mongo:
+            self.mongo.records.insert_one({
+                "id": record_id,
+                "date": date,
+                "patientName": patient_name,
+                "patientEmail": patient_email,
+                "modality": modality,
+                "modelUsed": model_used,
+                "probability": probability,
+                "verdict": verdict,
+                "pathology": pathology,
+                "signatures": signatures,
+                "scanUrl": scan_url,
+                "status": status,
+                "doctorVerdict": doctor_verdict,
+                "doctorNotes": doctor_notes,
+                "doctorSigned": doctor_signed
+            })
+        else:
+            cursor = self.sqlite.cursor()
+            cursor.execute("INSERT INTO records VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", 
+                           (record_id, date, patient_name, patient_email, modality, model_used, probability,
+                            verdict, pathology, signatures, scan_url, status, doctor_verdict, doctor_notes, doctor_signed))
+            self.sqlite.commit()
+
+    def update_record_review(self, record_id: str, verdict: str, pathology: str, signatures: str, status: str, doctor_verdict: str, doctor_notes: str, doctor_signed: str):
+        if self.is_mongo:
+            self.mongo.records.update_one({"id": record_id}, {"$set": {
+                "verdict": verdict,
+                "pathology": pathology,
+                "signatures": signatures,
+                "status": status,
+                "doctorVerdict": doctor_verdict,
+                "doctorNotes": doctor_notes,
+                "doctorSigned": doctor_signed
+            }})
+        else:
+            cursor = self.sqlite.cursor()
+            cursor.execute("""
+            UPDATE records 
+            SET verdict = ?, pathology = ?, signatures = ?, status = ?, doctorVerdict = ?, doctorNotes = ?, doctorSigned = ?
+            WHERE id = ?
+            """, (verdict, pathology, signatures, status, doctor_verdict, doctor_notes, doctor_signed, record_id))
+            self.sqlite.commit()
+
 def get_db():
-    conn = sqlite3.connect(DATABASE_FILE, check_same_thread=False)
-    conn.row_factory = sqlite3.Row
-    try:
-        yield conn
-    finally:
-        conn.close()
+    if MONGO_AVAILABLE:
+        yield UnifiedDB()
+    else:
+        conn = sqlite3.connect(DATABASE_FILE, check_same_thread=False)
+        conn.row_factory = sqlite3.Row
+        try:
+            yield UnifiedDB(conn)
+        finally:
+            conn.close()
 
 def init_db():
-    conn = sqlite3.connect(DATABASE_FILE, check_same_thread=False)
-    cursor = conn.cursor()
-    
-    # Clean drop if schema is out of date (operational check)
-    try:
-        cursor.execute("SELECT mobile FROM users LIMIT 1")
-    except sqlite3.OperationalError:
-        cursor.execute("DROP TABLE IF EXISTS users")
-        conn.commit()
+    if MONGO_AVAILABLE:
+        if mongo_db.users.count_documents({}) == 0:
+            hashed_pw = bcrypt.hashpw("password".encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+            mongo_db.users.insert_one({
+                "id": "usr-1", "name": "David Miller", "email": "patient@medivision.ai", 
+                "password": hashed_pw, "role": "patient", "mobile": "1234567890", 
+                "license_number": None, "hospital": None, "specialization": None
+            })
+            mongo_db.users.insert_one({
+                "id": "usr-2", "name": "Dr. Sarah Jenkins, MD", "email": "doctor@medivision.ai", 
+                "password": hashed_pw, "role": "doctor", "mobile": None, 
+                "license_number": "LIC-99281", "hospital": "MediVision General Hospital", "specialization": "Cardiology"
+            })
+            print("MongoDB: Seeded default sandbox accounts.")
+        if mongo_db.records.count_documents({}) == 0:
+            mongo_db.records.insert_one({
+                "id": "REC-8849", "date": "2026-06-11 14:30", "patientName": "David Miller", "patientEmail": "patient@medivision.ai",
+                "modality": "ECG", "modelUsed": "google/vit-base-patch16-224", "probability": "94.8%", "verdict": "Abnormal",
+                "pathology": "Possible Arrhythmia / PVCs", "signatures": "Premature ventricular contractions, elevated QT segment",
+                "scanUrl": "assets/ecg_sample.png", "status": "Pending Review", "doctorVerdict": "", "doctorNotes": "", "doctorSigned": ""
+            })
+            mongo_db.records.insert_one({
+                "id": "REC-5412", "date": "2026-06-10 09:15", "patientName": "Sarah Connor", "patientEmail": "sarah.c@gmail.com",
+                "modality": "Chest X-Ray", "modelUsed": "microsoft/resnet-50", "probability": "12.4%", "verdict": "Normal",
+                "pathology": "Clear Lung Fields", "signatures": "Normal cardiothoracic ratio (< 0.50), regular density",
+                "scanUrl": "assets/xray_sample.png", "status": "Approved", "doctorVerdict": "Confirmed - Normal",
+                "doctorNotes": "Lungs are clear, cardiac silhouette is within normal limits. No follow-up required.", "doctorSigned": "Dr. Sarah Jenkins, MD"
+            })
+            print("MongoDB: Seeded initial medical records.")
+    else:
+        conn = sqlite3.connect(DATABASE_FILE, check_same_thread=False)
+        cursor = conn.cursor()
+        try:
+            cursor.execute("SELECT mobile FROM users LIMIT 1")
+        except sqlite3.OperationalError:
+            cursor.execute("DROP TABLE IF EXISTS users")
+            conn.commit()
 
-    # Create Users SQL Table with extended attributes
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS users (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        email TEXT UNIQUE NOT NULL,
-        password TEXT NOT NULL,
-        role TEXT NOT NULL,
-        mobile TEXT,
-        license_number TEXT,
-        hospital TEXT,
-        specialization TEXT
-    )
-    """)
-    
-    # Create Records SQL Table
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS records (
-        id TEXT PRIMARY KEY,
-        date TEXT NOT NULL,
-        patientName TEXT NOT NULL,
-        patientEmail TEXT NOT NULL,
-        modality TEXT NOT NULL,
-        modelUsed TEXT NOT NULL,
-        probability TEXT NOT NULL,
-        verdict TEXT NOT NULL,
-        pathology TEXT NOT NULL,
-        signatures TEXT NOT NULL,
-        scanUrl TEXT NOT NULL,
-        status TEXT NOT NULL,
-        doctorVerdict TEXT,
-        doctorNotes TEXT,
-        doctorSigned TEXT
-    )
-    """)
-    
-    # Seed default user accounts if table is empty
-    cursor.execute("SELECT COUNT(*) FROM users")
-    if cursor.fetchone()[0] == 0:
-        hashed_pw = bcrypt.hashpw("password".encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-        cursor.execute("INSERT INTO users VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", 
-                       ("usr-1", "David Miller", "patient@medivision.ai", hashed_pw, "patient", "1234567890", None, None, None))
-        cursor.execute("INSERT INTO users VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", 
-                       ("usr-2", "Dr. Sarah Jenkins, MD", "doctor@medivision.ai", hashed_pw, "doctor", None, "LIC-99281", "MediVision General Hospital", "Cardiology"))
-        conn.commit()
-        print("SQL: Seeded default sandbox accounts with hashed passwords.")
-        
-    # Seed default records if table is empty
-    cursor.execute("SELECT COUNT(*) FROM records")
-    if cursor.fetchone()[0] == 0:
         cursor.execute("""
-        INSERT INTO records VALUES 
-        ('REC-8849', '2026-06-11 14:30', 'David Miller', 'patient@medivision.ai', 'ECG', 
-         'google/vit-base-patch16-224', '94.8%', 'Abnormal', 'Possible Arrhythmia / PVCs', 
-         'Premature ventricular contractions, elevated QT segment', 'assets/ecg_sample.png', 'Pending Review', '', '', '')
+        CREATE TABLE IF NOT EXISTS users (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            email TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL,
+            role TEXT NOT NULL,
+            mobile TEXT,
+            license_number TEXT,
+            hospital TEXT,
+            specialization TEXT
+        )
         """)
-        cursor.execute("""
-        INSERT INTO records VALUES 
-        ('REC-5412', '2026-06-10 09:15', 'Sarah Connor', 'sarah.c@gmail.com', 'Chest X-Ray', 
-         'microsoft/resnet-50', '12.4%', 'Normal', 'Clear Lung Fields', 
-         'Normal cardiothoracic ratio (< 0.50), regular density', 'assets/xray_sample.png', 'Approved', 
-         'Confirmed - Normal', 'Lungs are clear, cardiac silhouette is within normal limits. No follow-up required.', 'Dr. Sarah Jenkins, MD')
-        """)
-        conn.commit()
-        print("SQL: Seeded initial medical records.")
         
-    conn.close()
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS records (
+            id TEXT PRIMARY KEY,
+            date TEXT NOT NULL,
+            patientName TEXT NOT NULL,
+            patientEmail TEXT NOT NULL,
+            modality TEXT NOT NULL,
+            modelUsed TEXT NOT NULL,
+            probability TEXT NOT NULL,
+            verdict TEXT NOT NULL,
+            pathology TEXT NOT NULL,
+            signatures TEXT NOT NULL,
+            scanUrl TEXT NOT NULL,
+            status TEXT NOT NULL,
+            doctorVerdict TEXT,
+            doctorNotes TEXT,
+            doctorSigned TEXT
+        )
+        """)
+        
+        cursor.execute("SELECT COUNT(*) FROM users")
+        if cursor.fetchone()[0] == 0:
+            hashed_pw = bcrypt.hashpw("password".encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+            cursor.execute("INSERT INTO users VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", 
+                           ("usr-1", "David Miller", "patient@medivision.ai", hashed_pw, "patient", "1234567890", None, None, None))
+            cursor.execute("INSERT INTO users VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", 
+                           ("usr-2", "Dr. Sarah Jenkins, MD", "doctor@medivision.ai", hashed_pw, "doctor", None, "LIC-99281", "MediVision General Hospital", "Cardiology"))
+            conn.commit()
+            print("SQL: Seeded default sandbox accounts with hashed passwords.")
+            
+        cursor.execute("SELECT COUNT(*) FROM records")
+        if cursor.fetchone()[0] == 0:
+            cursor.execute("""
+            INSERT INTO records VALUES 
+            ('REC-8849', '2026-06-11 14:30', 'David Miller', 'patient@medivision.ai', 'ECG', 
+             'google/vit-base-patch16-224', '94.8%', 'Abnormal', 'Possible Arrhythmia / PVCs', 
+             'Premature ventricular contractions, elevated QT segment', 'assets/ecg_sample.png', 'Pending Review', '', '', '')
+            """)
+            cursor.execute("""
+            INSERT INTO records VALUES 
+            ('REC-5412', '2026-06-10 09:15', 'Sarah Connor', 'sarah.c@gmail.com', 'Chest X-Ray', 
+             'microsoft/resnet-50', '12.4%', 'Normal', 'Clear Lung Fields', 
+             'Normal cardiothoracic ratio (< 0.50), regular density', 'assets/xray_sample.png', 'Approved', 
+             'Confirmed - Normal', 'Lungs are clear, cardiac silhouette is within normal limits. No follow-up required.', 'Dr. Sarah Jenkins, MD')
+            """)
+            conn.commit()
+            print("SQL: Seeded initial medical records.")
+            
+        conn.close()
 
 init_db()
 
@@ -254,73 +431,76 @@ CHATBOT_KNOWLEDGE = {
 
 # User registration SQL Insert (with bcrypt + JWT)
 @app.post("/api/auth/register")
-def register(req: RegisterRequest, db: sqlite3.Connection = Depends(get_db)):
-    cursor = db.cursor()
+def register(req: RegisterRequest, db: UnifiedDB = Depends(get_db)):
+    if db.get_user_by_email(req.email):
+        raise HTTPException(status_code=400, detail="Email address is already registered.")
+    
+    user_id = f"usr-{uuid.uuid4().hex[:8]}"
+    hashed_pw = bcrypt.hashpw(req.password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
     try:
-        user_id = f"usr-{uuid.uuid4().hex[:8]}"
-        hashed_pw = bcrypt.hashpw(req.password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-        cursor.execute("INSERT INTO users VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", 
-                       (user_id, req.name, req.email, hashed_pw, req.role,
-                        req.mobile, req.license_number, req.hospital, req.specialization))
-        db.commit()
+        db.create_user(
+            user_id=user_id,
+            name=req.name,
+            email=req.email,
+            password_hash=hashed_pw,
+            role=req.role,
+            mobile=req.mobile,
+            license_number=req.license_number,
+            hospital=req.hospital,
+            specialization=req.specialization
+        )
         token = create_access_token({"user_id": user_id, "email": req.email, "role": req.role})
         return {"token": token, "user": {"name": req.name, "email": req.email, "role": req.role}}
-    except sqlite3.IntegrityError:
-        raise HTTPException(status_code=400, detail="Email address is already registered.")
+    except Exception:
+        raise HTTPException(status_code=400, detail="Failed to register user.")
 
-# User login SQL Query (with bcrypt + JWT)
+# User login (with bcrypt + JWT, using UnifiedDB)
 @app.post("/api/auth/login")
-def login(req: LoginRequest, db: sqlite3.Connection = Depends(get_db)):
-    cursor = db.cursor()
-    cursor.execute("SELECT * FROM users WHERE email = ?", (req.email,))
-    row = cursor.fetchone()
-    if not row:
+def login(req: LoginRequest, db: UnifiedDB = Depends(get_db)):
+    user = db.get_user_by_email(req.email)
+    if not user:
         raise HTTPException(status_code=401, detail="Invalid email or password.")
-    stored_hash = row["password"]
+    stored_hash = user["password"]
     if not bcrypt.checkpw(req.password.encode('utf-8'), stored_hash.encode('utf-8')):
         raise HTTPException(status_code=401, detail="Invalid email or password.")
-    token = create_access_token({"user_id": row["id"], "email": row["email"], "role": row["role"]})
-    return {"token": token, "user": {"name": row["name"], "email": row["email"], "role": row["role"]}}
+    token = create_access_token({"user_id": user["id"], "email": user["email"], "role": user["role"]})
+    return {"token": token, "user": {"name": user["name"], "email": user["email"], "role": user["role"]}}
 
-# Google OAuth login endpoint (simulated)
+# Google OAuth login endpoint (simulated, using UnifiedDB)
 @app.post("/api/auth/google")
-def google_login(req: GoogleLoginRequest, db: sqlite3.Connection = Depends(get_db)):
-    cursor = db.cursor()
-    cursor.execute("SELECT * FROM users WHERE email = ?", (req.email,))
-    row = cursor.fetchone()
+def google_login(req: GoogleLoginRequest, db: UnifiedDB = Depends(get_db)):
+    user = db.get_user_by_email(req.email)
     
-    if not row:
+    if not user:
         user_id = f"usr-{uuid.uuid4().hex[:8]}"
         role = "doctor" if req.email.lower().endswith("@medivision.ai") else "patient"
         random_pw = uuid.uuid4().hex
         hashed_pw = bcrypt.hashpw(random_pw.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
         try:
-            cursor.execute("INSERT INTO users VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", 
-                           (user_id, req.name, req.email, hashed_pw, role, None, None, None, None))
-            db.commit()
-            cursor.execute("SELECT * FROM users WHERE id = ?", (user_id,))
-            row = cursor.fetchone()
-        except sqlite3.IntegrityError:
+            db.create_user(user_id, req.name, req.email, hashed_pw, role)
+            user = db.get_user_by_id(user_id)
+        except Exception:
             raise HTTPException(status_code=400, detail="Failed to register user via Google authentication.")
             
-    token = create_access_token({"user_id": row["id"], "email": row["email"], "role": row["role"]})
-    return {"token": token, "user": {"name": row["name"], "email": row["email"], "role": row["role"]}}
+    token = create_access_token({"user_id": user["id"], "email": user["email"], "role": user["role"]})
+    return {"token": token, "user": {"name": user["name"], "email": user["email"], "role": user["role"]}}
 
 
-# Retrieve Patient/Doctor clinical records from SQL (JWT-protected)
+# Retrieve Patient/Doctor clinical records (JWT-protected, using UnifiedDB)
 @app.get("/api/records")
-def get_records(request: Request, email: str, role: str, db: sqlite3.Connection = Depends(get_db)):
+def get_records(request: Request, email: str, role: str, db: UnifiedDB = Depends(get_db)):
     get_current_user(request)
-    cursor = db.cursor()
-    if role == "doctor":
-        cursor.execute("SELECT * FROM records ORDER BY date DESC")
-    else:
-        cursor.execute("SELECT * FROM records WHERE patientEmail = ? ORDER BY date DESC", (email,))
-    
-    rows = cursor.fetchall()
-    return [dict(row) for row in rows]
+    records = db.get_records(email, role)
+    # Ensure they are dict format and don't include _id object from MongoDB if present
+    processed = []
+    for r in records:
+        r_dict = dict(r)
+        if "_id" in r_dict:
+            del r_dict["_id"]
+        processed.append(r_dict)
+    return processed
 
-# Real PyTorch prediction engine & SQL record logger (JWT-protected + file size validation)
+# Real PyTorch prediction engine & record logger (JWT-protected + file size validation, using UnifiedDB)
 @app.post("/api/predict")
 async def predict(
     request: Request,
@@ -329,7 +509,7 @@ async def predict(
     model_used: str = Form(...),
     patient_name: str = Form(...),
     patient_email: str = Form(...),
-    db: sqlite3.Connection = Depends(get_db)
+    db: UnifiedDB = Depends(get_db)
 ):
     get_current_user(request)
     
@@ -409,17 +589,25 @@ async def predict(
         
     clinical_tags = profile["symptoms"] if verdict == "Abnormal" else "Sinus baseline, regular parameters."
     
-    # Save predictions to SQLite database
+    # Save predictions to database
     record_id = f"REC-{uuid.uuid4().int % 10000:04d}"
     now = time.strftime("%Y-%m-%d %H:%M")
     saved_path_url = saved_path.replace("\\", "/")
     
-    cursor = db.cursor()
-    cursor.execute("""
-    INSERT INTO records VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (record_id, now, patient_name, patient_email, modality, model_used, f"{prob}%",
-          verdict, pathology, clinical_tags, saved_path_url, "Pending Review", "", "", ""))
-    db.commit()
+    db.create_record(
+        record_id=record_id,
+        date=now,
+        patient_name=patient_name,
+        patient_email=patient_email,
+        modality=modality,
+        model_used=model_used,
+        probability=f"{prob}%",
+        verdict=verdict,
+        pathology=pathology,
+        signatures=clinical_tags,
+        scan_url=saved_path_url,
+        status="Pending Review"
+    )
     
     return {
         "id": record_id,
@@ -436,27 +624,30 @@ async def predict(
         "status": "Pending Review"
     }
 
-# Update record review signatures in SQL (JWT-protected)
+# Update record review signatures (JWT-protected, using UnifiedDB)
 @app.post("/api/records/{record_id}/review")
-def review_record(record_id: str, req: ReviewRequest, request: Request, db: sqlite3.Connection = Depends(get_db)):
+def review_record(record_id: str, req: ReviewRequest, request: Request, db: UnifiedDB = Depends(get_db)):
     get_current_user(request)
-    cursor = db.cursor()
-    cursor.execute("SELECT * FROM records WHERE id = ?", (record_id,))
-    if not cursor.fetchone():
+    record = db.get_record_by_id(record_id)
+    if not record:
         raise HTTPException(status_code=404, detail="Medical record not found.")
         
     status = "Approved" if "confirm" in req.verdict.lower() else "Rejected"
-    cursor.execute("""
-    UPDATE records 
-    SET status = ?, doctorVerdict = ?, doctorNotes = ?, doctorSigned = ?
-    WHERE id = ?
-    """, (status, req.verdict, req.notes, req.signature, record_id))
-    db.commit()
+    db.update_record_review(
+        record_id=record_id,
+        verdict=record["verdict"],
+        pathology=record["pathology"],
+        signatures=record["signatures"],
+        status=status,
+        doctor_verdict=req.verdict,
+        doctor_notes=req.notes,
+        doctor_signed=req.signature
+    )
     return {"message": "Clinical review signed off successfully."}
 
-# Chatbot endpoint fetching active SQL scan context
+# Chatbot endpoint fetching active scan context (using UnifiedDB)
 @app.post("/api/chat")
-def chat(req: ChatRequest, db: sqlite3.Connection = Depends(get_db)):
+def chat(req: ChatRequest, db: UnifiedDB = Depends(get_db)):
     message_clean = req.message.lower()
     
     modality_key = "ecg"
@@ -464,9 +655,7 @@ def chat(req: ChatRequest, db: sqlite3.Connection = Depends(get_db)):
     
     # Check if we have an active record ID context in the request
     if req.recordId:
-        cursor = db.cursor()
-        cursor.execute("SELECT * FROM records WHERE id = ?", (req.recordId,))
-        record = cursor.fetchone()
+        record = db.get_record_by_id(req.recordId)
         if record:
             modality_key = "xray" if "x-ray" in record["modality"].lower() else ("mri" if "mri" in record["modality"].lower() else "ecg")
             verdict_key = record["verdict"].lower()
