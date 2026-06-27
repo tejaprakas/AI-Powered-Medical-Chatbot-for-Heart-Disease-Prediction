@@ -6,9 +6,10 @@
 // When deploying to production (e.g. Netlify), set this to your deployed backend URL (e.g., 'https://your-backend.onrender.com')
 const PRODUCTION_BACKEND_URL = ''; 
 
-const API_BASE = window.location.origin.includes(':8000') 
-    ? '' 
-    : (PRODUCTION_BACKEND_URL || 'http://127.0.0.1:8000');
+const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const API_BASE = (isLocalhost && !window.location.port.includes('8000'))
+    ? 'http://127.0.0.1:8000'
+    : (PRODUCTION_BACKEND_URL || '');
 
 let records = [];
 let currentUser = JSON.parse(localStorage.getItem('medivision_user')) || null;
