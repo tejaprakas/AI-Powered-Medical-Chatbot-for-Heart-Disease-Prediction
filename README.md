@@ -1,4 +1,4 @@
-<![CDATA[# 🏥 MediVision AI — Heart Disease Detection & Medical Chatbot
+# 🏥 MediVision AI — Heart Disease Detection & Medical Chatbot
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue?logo=python)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-green?logo=fastapi)
@@ -111,9 +111,10 @@ source venv/bin/activate        # Linux / macOS
 venv\Scripts\activate           # Windows
 
 # 3. Install dependencies
-pip install -r requirements.txt
+pip install -r backend/requirements.txt
 
 # 4. Run the server
+cd backend
 python server.py
 
 # 5. Open your browser
@@ -185,19 +186,18 @@ Use these pre-seeded accounts to explore the platform instantly:
 
 ```
 MediVision/
-├── 📄 index.html            # Main single-page application (Landing + Dashboard)
-├── 🎨 style.css             # Complete design system (dark theme, animations)
-├── ⚡ app.js                # Frontend logic (auth, upload, chat, doctor portal)
-├── 🐍 server.py             # FastAPI backend (API routes, AI inference, DB)
-├── 🗃️ medivision.db         # SQLite database (auto-generated on first run)
-├── 📂 assets/               # Pre-loaded sample medical images
-│   ├── ecg_sample.png       #   └── Sample ECG strip
-│   ├── xray_sample.png      #   └── Sample Chest X-Ray
-│   └── mri_sample.png       #   └── Sample Cardiac MRI
-├── 📂 uploads/              # User-uploaded scan storage (auto-created)
-├── 📄 requirements.txt      # Python dependency manifest
-├── 📄 .gitignore            # Git exclusion rules
-└── 📄 README.md             # This file
+├── 📂 backend/              # Server-side codebase
+│   ├── 🐍 server.py         # FastAPI application and prediction logic
+│   ├── 🗃️ medivision.db     # SQLite database file
+│   ├── 📄 requirements.txt  # Server packages manifest
+│   └── 📂 uploads/          # Scan storage folder
+├── 📂 frontend/             # Client-side codebase
+│   ├── 📄 index.html        # Main dashboard and landing view
+│   ├── ⚡ app.js            # App controller and API calls
+│   ├── 🎨 style.css         # Glassmorphism styling rules
+│   └── 📂 assets/           # Default samples (ECG, X-Ray, MRI)
+├── 📄 README.md             # This documentation
+└── 📄 .gitignore            # Git exclusion rules
 ```
 
 ---
@@ -268,4 +268,3 @@ Built with ❤️ by [Teja Prakas](https://github.com/tejaprakas)
   <br>
   <sub>⭐ Star this repo if you found it useful!</sub>
 </p>
-]]>
